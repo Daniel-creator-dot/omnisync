@@ -1,0 +1,445 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Application user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "accountant", "hr", "employee"] },
+        "department": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Accounting invoice",
+      "type": "object",
+      "properties": {
+        "invoiceNumber": { "type": "string" },
+        "customerId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["paid", "pending", "overdue", "void"] },
+        "dueDate": { "type": "string", "format": "date" },
+        "items": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["invoiceNumber", "clientName", "amount", "status", "dueDate"]
+    },
+    "CreditNote": {
+      "title": "CreditNote",
+      "description": "Sales credit note",
+      "type": "object",
+      "properties": {
+        "number": { "type": "string" },
+        "customerId": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "reason": { "type": "string" }
+      },
+      "required": ["number", "customerId", "amount", "date"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Sales or Purchase payment",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["inbound", "outbound"] },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "method": { "type": "string" },
+        "referenceId": { "type": "string" },
+        "contactId": { "type": "string" }
+      },
+      "required": ["type", "amount", "date", "method"]
+    },
+    "PurchaseOrder": {
+      "title": "PurchaseOrder",
+      "description": "Vendor purchase order",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "sent", "received", "cancelled"] },
+        "date": { "type": "string", "format": "date" }
+      },
+      "required": ["orderNumber", "vendorId", "amount", "status", "date"]
+    },
+    "BankAccount": {
+      "title": "BankAccount",
+      "description": "Company bank account",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "bankName": { "type": "string" },
+        "currency": { "type": "string" },
+        "balance": { "type": "number" }
+      },
+      "required": ["name", "accountNumber", "bankName"]
+    },
+    "BankTransfer": {
+      "title": "BankTransfer",
+      "description": "Transfer between bank accounts",
+      "type": "object",
+      "properties": {
+        "fromAccountId": { "type": "string" },
+        "toAccountId": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "description": { "type": "string" }
+      },
+      "required": ["fromAccountId", "toAccountId", "amount", "date"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Inventory product",
+      "type": "object",
+      "properties": {
+        "sku": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "cost": { "type": "number" },
+        "stockLevel": { "type": "number" },
+        "category": { "type": "string" }
+      },
+      "required": ["sku", "name", "price", "cost", "stockLevel"]
+    },
+    "StockAdjustment": {
+      "title": "StockAdjustment",
+      "description": "Manual stock adjustment",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "type": { "type": "string", "enum": ["addition", "reduction"] },
+        "reason": { "type": "string" },
+        "date": { "type": "string", "format": "date" }
+      },
+      "required": ["productId", "quantity", "type", "date"]
+    },
+    "FiscalYear": {
+      "title": "FiscalYear",
+      "description": "Financial year configuration",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["open", "closed"] }
+      },
+      "required": ["name", "startDate", "endDate", "status"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Company department",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "headId": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Policy": {
+      "title": "Policy",
+      "description": "Company policy document",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Business expense",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "submittedBy": { "type": "string" }
+      },
+      "required": ["category", "amount", "date", "status"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "Chart of Accounts entry",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["asset", "liability", "equity", "revenue", "expense"] },
+        "balance": { "type": "number" }
+      },
+      "required": ["code", "name", "type"]
+    },
+    "JournalEntry": {
+      "title": "JournalEntry",
+      "description": "Manual journal entry",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "description": { "type": "string" },
+        "reference": { "type": "string" },
+        "lines": { "type": "array" }
+      },
+      "required": ["date", "description", "lines"]
+    },
+    "Vendor": {
+      "title": "Vendor",
+      "description": "Supplier information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Bill": {
+      "title": "Bill",
+      "description": "Vendor bill (Accounts Payable)",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "vendorName": { "type": "string" },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["paid", "pending", "overdue"] }
+      },
+      "required": ["vendorId", "amount", "dueDate", "status"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "TaxRate": {
+      "title": "TaxRate",
+      "description": "Tax configuration",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "rate": { "type": "number" }
+      },
+      "required": ["name", "rate"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "Fixed asset",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "purchaseDate": { "type": "string", "format": "date" },
+        "value": { "type": "number" },
+        "depreciationRate": { "type": "number" }
+      },
+      "required": ["name", "purchaseDate", "value"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "HR Employee record",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "position": { "type": "string" },
+        "department": { "type": "string" },
+        "salary": { "type": "number" },
+        "joinDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["name", "email", "position", "department", "salary", "joinDate", "status"]
+    },
+    "Payroll": {
+      "title": "Payroll",
+      "description": "Monthly payroll record",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "baseSalary": { "type": "number" },
+        "bonuses": { "type": "number" },
+        "deductions": { "type": "number" },
+        "netSalary": { "type": "number" },
+        "status": { "type": "string", "enum": ["paid", "pending"] }
+      },
+      "required": ["employeeId", "month", "year", "baseSalary", "netSalary", "status"]
+    },
+    "LeaveRequest": {
+      "title": "LeaveRequest",
+      "description": "HR Leave request",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "type": { "type": "string", "enum": ["sick", "vacation", "personal"] },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "reason": { "type": "string" }
+      },
+      "required": ["employeeId", "type", "startDate", "endDate", "status"]
+    },
+    "JobPosting": {
+      "title": "JobPosting",
+      "description": "Recruitment job posting",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "department": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "closed"] }
+      },
+      "required": ["title", "department", "status"]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "Job applicant",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "jobId": { "type": "string" },
+        "status": { "type": "string", "enum": ["applied", "interviewing", "offered", "rejected"] }
+      },
+      "required": ["name", "email", "jobId", "status"]
+    },
+    "PerformanceReview": {
+      "title": "PerformanceReview",
+      "description": "Employee appraisal",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "reviewerId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "rating": { "type": "number" },
+        "comments": { "type": "string" }
+      },
+      "required": ["employeeId", "reviewerId", "date", "rating"]
+    },
+    "TrainingCourse": {
+      "title": "TrainingCourse",
+      "description": "Employee training",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "provider": { "type": "string" },
+        "duration": { "type": "string" }
+      },
+      "required": ["title"]
+    },
+    "Timesheet": {
+      "title": "Timesheet",
+      "description": "Employee attendance",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "hours": { "type": "number" },
+        "status": { "type": "string", "enum": ["submitted", "approved", "rejected"] }
+      },
+      "required": ["employeeId", "date", "hours", "status"]
+    },
+    "Benefit": {
+      "title": "Benefit",
+      "description": "Employee benefit",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "cost": { "type": "number" }
+      },
+      "required": ["name"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Financial budget",
+      "type": "object",
+      "properties": {
+        "year": { "type": "number" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "actual": { "type": "number" }
+      },
+      "required": ["year", "category", "amount"]
+    },
+    "OnboardingTask": {
+      "title": "OnboardingTask",
+      "description": "Employee onboarding task",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "task": { "type": "string" },
+        "completed": { "type": "boolean" }
+      },
+      "required": ["employeeId", "task", "completed"]
+    },
+    "PayrollSetting": {
+      "title": "PayrollSetting",
+      "description": "Payroll deductions and settings",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["percentage", "fixed"] },
+        "value": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "type", "value"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/invoices/{invoiceId}": { "schema": "Invoice", "description": "Invoices" },
+    "/expenses/{expenseId}": { "schema": "Expense", "description": "Expenses" },
+    "/accounts/{accountId}": { "schema": "Account", "description": "Chart of Accounts" },
+    "/journalEntries/{entryId}": { "schema": "JournalEntry", "description": "Journal Entries" },
+    "/vendors/{vendorId}": { "schema": "Vendor", "description": "Vendors" },
+    "/bills/{billId}": { "schema": "Bill", "description": "Bills (AP)" },
+    "/customers/{customerId}": { "schema": "Customer", "description": "Customers" },
+    "/taxRates/{rateId}": { "schema": "TaxRate", "description": "Tax Rates" },
+    "/assets/{assetId}": { "schema": "Asset", "description": "Fixed Assets" },
+    "/employees/{employeeId}": { "schema": "Employee", "description": "Employees" },
+    "/payroll/{payrollId}": { "schema": "Payroll", "description": "Payroll" },
+    "/leaveRequests/{requestId}": { "schema": "LeaveRequest", "description": "Leave Requests" },
+    "/jobPostings/{postingId}": { "schema": "JobPosting", "description": "Job Postings" },
+    "/candidates/{candidateId}": { "schema": "Candidate", "description": "Candidates" },
+    "/performanceReviews/{reviewId}": { "schema": "PerformanceReview", "description": "Performance Reviews" },
+    "/trainingCourses/{courseId}": { "schema": "TrainingCourse", "description": "Training Courses" },
+    "/timesheets/{timesheetId}": { "schema": "Timesheet", "description": "Timesheets" },
+    "/benefits/{benefitId}": { "schema": "Benefit", "description": "Benefits" },
+    "/budgets/{budgetId}": { "schema": "Budget", "description": "Budgets" },
+    "/onboardingTasks/{taskId}": { "schema": "OnboardingTask", "description": "Onboarding Tasks" },
+    "/creditNotes/{id}": { "schema": "CreditNote", "description": "Credit Notes" },
+    "/payments/{id}": { "schema": "Payment", "description": "Payments" },
+    "/purchaseOrders/{id}": { "schema": "PurchaseOrder", "description": "Purchase Orders" },
+    "/bankAccounts/{id}": { "schema": "BankAccount", "description": "Bank Accounts" },
+    "/bankTransfers/{id}": { "schema": "BankTransfer", "description": "Bank Transfers" },
+    "/products/{id}": { "schema": "Product", "description": "Products" },
+    "/stockAdjustments/{id}": { "schema": "StockAdjustment", "description": "Stock Adjustments" },
+    "/fiscalYears/{id}": { "schema": "FiscalYear", "description": "Fiscal Years" },
+    "/departments/{id}": { "schema": "Department", "description": "Departments" },
+    "/policies/{id}": { "schema": "Policy", "description": "Policies" },
+    "/payrollSettings/{id}": { "schema": "PayrollSetting", "description": "Payroll Settings" }
+  }
+}
