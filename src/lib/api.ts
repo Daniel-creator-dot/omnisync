@@ -1,5 +1,8 @@
 const isProd = typeof window !== 'undefined' && window.location.hostname === 'omnisync-pd01.onrender.com';
-const API_BASE = (import.meta as any).env.VITE_API_URL || (isProd ? 'https://omnisyncb.onrender.com/api' : '/api');
+let API_BASE = (import.meta as any).env.VITE_API_URL || (isProd ? 'https://omnisyncb.onrender.com/api' : '/api');
+if (API_BASE && !API_BASE.endsWith('/api') && !API_BASE.endsWith('/api/')) {
+  API_BASE = API_BASE.replace(/\/$/, '') + '/api';
+}
 
 function getToken(): string | null {
   return localStorage.getItem('omnisync_token');
