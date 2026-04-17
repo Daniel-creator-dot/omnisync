@@ -144,7 +144,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     const maskedPhone = phone.replace(/(\d{3})\d+(\d{3})/, '$1****$2');
     console.log(`[Auth] Attempting password reset SMS for ${email} to ${maskedPhone} with OTP: ${otp}`);
 
-    const sent = await sendSMS(phone, `Hello ${display_name}, your OmniSync reset code is: ${otp}. Valid for 10 mins.`);
+    const sent = await sendSMS(phone, `Hello ${display_name}, your BytzForge reset code is: ${otp}. Valid for 10 mins.`);
     
     if (!sent) {
       console.error(`[Auth] Failed to send SMS to ${maskedPhone}. OTP was: ${otp}`);

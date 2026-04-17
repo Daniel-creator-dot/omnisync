@@ -24,7 +24,7 @@ async function migrate() {
     // Insert a default row if not exists
     await client.query(`
       INSERT INTO sms_config (id, base_url, sender_id)
-      SELECT 1, 'https://api.sms-provider.com/send', 'OmniSync'
+      SELECT 1, 'https://sms.smsnotifygh.com/smsapi', 'BytzForge'
       WHERE NOT EXISTS (SELECT 1 FROM sms_config WHERE id = 1)
     `);
 

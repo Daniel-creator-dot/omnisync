@@ -445,7 +445,7 @@ export async function initializeDatabase() {
     `);
     await client.query(`
       INSERT INTO sms_config (id, base_url, sender_id, provider, is_active) 
-      VALUES (1, 'https://api.sms-provider.com/send', 'OmniSync', 'Default', true) 
+      VALUES (1, 'https://sms.smsnotifygh.com/smsapi', 'BytzForge', 'SMSNotifyGH', true) 
       ON CONFLICT (id) DO NOTHING;
     `);
 
@@ -544,7 +544,7 @@ export async function initializeDatabase() {
     await client.query('ALTER TABLE sms_config ADD COLUMN IF NOT EXISTS api_secret TEXT');
     await client.query('ALTER TABLE sms_config ADD COLUMN IF NOT EXISTS provider VARCHAR(50)');
     await client.query('ALTER TABLE sms_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false');
-    await client.query('UPDATE sms_config SET is_active = true WHERE id = 1 AND is_active IS NULL');
+    await client.query("UPDATE sms_config SET base_url = 'https://sms.smsnotifygh.com/smsapi', sender_id = 'BytzForge', provider = 'SMSNotifyGH', is_active = true WHERE id = 1");
 
     await client.query('COMMIT');
     console.log('✅ Database initialized successfully');
