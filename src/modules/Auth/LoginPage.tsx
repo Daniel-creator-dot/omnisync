@@ -119,14 +119,7 @@ const LoginPage = () => {
                   </div>
                 </form>
 
-                <div className="mt-8 relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-200"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-white/50 text-slate-500 font-medium backdrop-blur-sm rounded-full">Default: admin@omnisync.com / zxcv123$$</span>
-                  </div>
-                </div>
+
               </motion.div>
             ) : (
               <motion.div
