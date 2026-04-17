@@ -57,6 +57,8 @@ export async function initializeDatabase() {
         invoice_prefix VARCHAR(20) DEFAULT 'INV-',
         invoice_next_number INTEGER DEFAULT 1001,
         currency VARCHAR(10) DEFAULT 'USD',
+        payment_terms TEXT DEFAULT 'Net 30',
+        default_notes TEXT,
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
@@ -198,6 +200,8 @@ export async function initializeDatabase() {
     await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS phone VARCHAR(20)');
     await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS manager_id INTEGER REFERENCES employees(id)');
     await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_title VARCHAR(255)');
+    await client.query('ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS payment_terms TEXT DEFAULT \'Net 30\'');
+    await client.query('ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS default_notes TEXT');
 
     await client.query('COMMIT');
     console.log('✅ Database initialized successfully');
