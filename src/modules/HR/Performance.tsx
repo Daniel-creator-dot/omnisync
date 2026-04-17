@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
 import { toast } from 'sonner';
 
 const Performance = () => {
@@ -52,14 +53,14 @@ const Performance = () => {
             <DialogHeader><DialogTitle>Add Performance Review</DialogTitle></DialogHeader>
             <form onSubmit={handleAdd} className="space-y-4 pt-4">
               <div className="space-y-2"><Label>Employee</Label>
-                <Select onValueChange={(v: string) => setNewReview({...newReview, employeeId: v})} required>
+                <Select onValueChange={(v: string) => setNewReview({ ...newReview, employeeId: v })} required>
                   <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
                   <SelectContent>{employees.map(emp => (<SelectItem key={emp.id} value={emp.id.toString()}>{emp.name}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>Date</Label><Input type="date" value={newReview.date} onChange={e => setNewReview({...newReview, date: e.target.value})} required /></div>
-              <div className="space-y-2"><Label>Rating (1-5)</Label><Input type="number" min="1" max="5" value={newReview.rating} onChange={e => setNewReview({...newReview, rating: Number(e.target.value)})} required /></div>
-              <div className="space-y-2"><Label>Comments</Label><Input value={newReview.comments} onChange={e => setNewReview({...newReview, comments: e.target.value})} /></div>
+              <div className="space-y-2"><Label>Date</Label><Input type="date" value={newReview.date} onChange={e => setNewReview({ ...newReview, date: e.target.value })} required /></div>
+              <div className="space-y-2"><Label>Rating (1-5)</Label><Input type="number" min="1" max="5" value={newReview.rating} onChange={e => setNewReview({ ...newReview, rating: Number(e.target.value) })} required /></div>
+              <div className="space-y-2"><Label>Comments</Label><Input value={newReview.comments} onChange={e => setNewReview({ ...newReview, comments: e.target.value })} /></div>
               <Button type="submit" className="w-full bg-indigo-600">Submit Review</Button>
             </form>
           </DialogContent>
@@ -78,7 +79,7 @@ const Performance = () => {
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{getEmployeeName(r.employee_id)}</TableCell>
                   <TableCell>{new Date(r.date).toLocaleDateString()}</TableCell>
-                  <TableCell><div className="flex items-center gap-1">{Array.from({length: 5}).map((_, i) => (<Star key={i} className={`h-4 w-4 ${i < r.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />))}</div></TableCell>
+                  <TableCell><div className="flex items-center gap-1">{Array.from({ length: 5 }).map((_, i) => (<Star key={i} className={`h-4 w-4 ${i < r.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />))}</div></TableCell>
                   <TableCell className="max-w-xs truncate">{r.comments}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -127,7 +128,7 @@ const Performance = () => {
                 <div className="flex flex-col items-center justify-center space-y-3">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Performance Rating</p>
                   <div className="flex items-center gap-2">
-                    {Array.from({length: 5}).map((_, i) => (
+                    {Array.from({ length: 5 }).map((_, i) => (
                       <Star key={i} className={`h-8 w-8 ${i < viewingReview.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-100'}`} />
                     ))}
                   </div>
@@ -146,7 +147,7 @@ const Performance = () => {
                     <p className="text-sm font-medium">Standard Periodic Performance Evaluation</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 bg-slate-100 p-1.5 rounded-lg"><MessageSquare className="h-4 w-4 text-slate-500" /></div>
                   <div className="flex-1">
