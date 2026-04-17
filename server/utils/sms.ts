@@ -10,10 +10,14 @@ export async function sendSMS(to: string, message: string) {
       return false;
     }
 
-    const { base_url, sender_id, api_key, provider, api_secret } = config;
+    const { base_url, sender_id, api_key, provider, api_secret } = config || {};
+
+    if (!base_url) {
+      console.warn('SMS base_url is missing. Message not sent.');
+      return false;
+    }
 
     // Sanitize phone: Remove spaces, dashes, parentheses and leading +
-    // Ghanian gateways usually prefer raw digits (e.g. 050... or 23350...)
     const cleanTo = to.replace(/\D/g, '');
 
     // Format: base_url?key=xxxxxxxxxx&to=xxxxxxx&msg=xxxxxxxx&sender_id=xxxxx
@@ -27,24 +31,30 @@ export async function sendSMS(to: string, message: string) {
     const url = `${base_url}?${params.toString()}`;
     const maskedTo = cleanTo.slice(0, 3) + '****' + cleanTo.slice(-3);
     
-    console.log(`Sending SMS to ${maskedTo} via ${provider || 'Gateway'}...`);
+    console.log(`[SMS] Sending to ${maskedTo} via ${provider || 'Gateway'}...`);
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: api_key ? { 'Authorization': `Bearer ${api_key}` } : {}
-    });
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: api_key ? { 'Authorization': `Bearer ${api_key}` } : {},
+        signal: AbortSignal.timeout(10000) // 10s timeout
+      });
 
-    const body = await response.text();
+      const body = await response.text();
 
-    if (!response.ok) {
-      console.error(`❌ SMS Provider error (${response.status}):`, body);
+      if (!response.ok) {
+        console.error(`❌ [SMS] Provider error (${response.status}):`, body);
+        return false;
+      }
+
+      console.log(`✅ [SMS] Success response:`, body);
+      return true;
+    } catch (fetchError: any) {
+      console.error(`❌ [SMS] Network error:`, fetchError.message);
       return false;
     }
-
-    console.log(`✅ SMS Gateway Response:`, body);
-    return true;
   } catch (error) {
-    console.error('❌ Failed to send SMS:', error);
+    console.error('❌ [SMS] Unexpected failure:', error);
     return false;
   }
 }

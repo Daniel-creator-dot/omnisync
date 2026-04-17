@@ -444,8 +444,8 @@ export async function initializeDatabase() {
       );
     `);
     await client.query(`
-      INSERT INTO sms_config (id, base_url, sender_id, provider) 
-      VALUES (1, 'https://api.sms-provider.com/send', 'OmniSync', 'Default') 
+      INSERT INTO sms_config (id, base_url, sender_id, provider, is_active) 
+      VALUES (1, 'https://api.sms-provider.com/send', 'OmniSync', 'Default', true) 
       ON CONFLICT (id) DO NOTHING;
     `);
 
@@ -539,6 +539,12 @@ export async function initializeDatabase() {
     await client.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS city VARCHAR(100)');
     await client.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS state VARCHAR(50)');
     await client.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS zip VARCHAR(20)');
+    // sms_config patches
+    await client.query('ALTER TABLE sms_config ADD COLUMN IF NOT EXISTS api_key TEXT');
+    await client.query('ALTER TABLE sms_config ADD COLUMN IF NOT EXISTS api_secret TEXT');
+    await client.query('ALTER TABLE sms_config ADD COLUMN IF NOT EXISTS provider VARCHAR(50)');
+    await client.query('ALTER TABLE sms_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false');
+    await client.query('UPDATE sms_config SET is_active = true WHERE id = 1 AND is_active IS NULL');
 
     await client.query('COMMIT');
     console.log('✅ Database initialized successfully');

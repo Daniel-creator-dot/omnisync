@@ -31,6 +31,9 @@ import Organogram from './modules/HR/Organogram';
 import ExitManagement from './modules/HR/ExitManagement';
 import SelfService from './modules/HR/SelfService';
 
+import { Toaster } from './components/ui/sonner';
+import ErrorBoundary from './components/ErrorBoundary';
+
 function AppContent() {
   const { user, loading, login } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -86,10 +89,6 @@ function AppContent() {
     </SettingsProvider>
   );
 }
-
-import { Toaster } from './components/ui/sonner';
-
-import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   return (

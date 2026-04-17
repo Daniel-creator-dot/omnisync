@@ -147,8 +147,11 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     const sent = await sendSMS(phone, `Hello ${display_name}, your OmniSync reset code is: ${otp}. Valid for 10 mins.`);
     
     if (!sent) {
-      console.error(`[Auth] Failed to send SMS to ${maskedPhone}`);
-      return res.status(500).json({ error: 'Failed to send SMS OTP. The SMS gateway might be down. Please contact support.' });
+      console.error(`[Auth] Failed to send SMS to ${maskedPhone}. OTP was: ${otp}`);
+      return res.status(502).json({ 
+        error: 'Failed to send SMS OTP. The SMS gateway might be down or unconfigured.',
+        details: 'For developers: Check server logs for the OTP.'
+      });
     }
 
     res.json({ success: true, message: 'OTP sent successfully.' });
