@@ -220,7 +220,7 @@ const HRSettings = () => {
                     <Label htmlFor="sender_id">Sender ID (From Name)</Label>
                     <Input 
                       id="sender_id" 
-                      placeholder="OMNISYNC" 
+                      placeholder="BYTZ360" 
                       value={smsConfig.sender_id} 
                       onChange={e => setSmsConfig({...smsConfig, sender_id: e.target.value})} 
                       required 

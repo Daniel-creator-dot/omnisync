@@ -44,7 +44,7 @@ const LoginPage = () => {
             <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/20">
               <Zap className="h-8 w-8 text-white" />
             </div>
-            <span className="text-4xl font-extrabold tracking-tight text-slate-900">OmniSync</span>
+            <span className="text-4xl font-extrabold tracking-tight text-slate-900">Bytz360</span>
           </div>
           <h2 className="text-3xl font-bold text-slate-900 mb-3">Welcome back</h2>
           <p className="text-slate-500 text-lg">Sign in to manage your business with precision</p>
@@ -72,7 +72,7 @@ const LoginPage = () => {
                     <Input 
                       id="email" 
                       type="email" 
-                      placeholder="admin@omnisync.com"
+                      placeholder="admin@bytz360.com"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       required

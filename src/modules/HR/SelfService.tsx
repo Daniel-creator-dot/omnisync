@@ -27,7 +27,7 @@ const PayslipDocument = ({ pay, user }: { pay: any, user: any }) => {
       <div className="border-b border-slate-200 pb-4 mb-4">
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="text-2xl font-bold font-serif text-slate-900">OMNISYNC</h2>
+            <h2 className="text-2xl font-bold font-serif text-slate-900">BYTZ360</h2>
             <p className="text-sm text-slate-500">Official Salary Statement</p>
           </div>
           <div className="text-right">

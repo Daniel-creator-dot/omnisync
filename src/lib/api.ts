@@ -1,19 +1,19 @@
-const isProd = typeof window !== 'undefined' && window.location.hostname === 'omnisync-pd01.onrender.com';
-let API_BASE = (import.meta as any).env.VITE_API_URL || (isProd ? 'https://omnisyncb.onrender.com/api' : '/api');
+const isProd = typeof window !== 'undefined' && window.location.hostname === 'bytz360-pd01.onrender.com';
+let API_BASE = (import.meta as any).env.VITE_API_URL || (isProd ? 'https://bytz360b.onrender.com/api' : '/api');
 if (API_BASE && !API_BASE.endsWith('/api') && !API_BASE.endsWith('/api/')) {
   API_BASE = API_BASE.replace(/\/$/, '') + '/api';
 }
 
 function getToken(): string | null {
-  return localStorage.getItem('omnisync_token');
+  return localStorage.getItem('bytz360_token');
 }
 
 export function setToken(token: string) {
-  localStorage.setItem('omnisync_token', token);
+  localStorage.setItem('bytz360_token', token);
 }
 
 export function clearToken() {
-  localStorage.removeItem('omnisync_token');
+  localStorage.removeItem('bytz360_token');
 }
 
 async function request(method: string, path: string, body?: any) {

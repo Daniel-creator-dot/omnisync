@@ -20,7 +20,7 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<CompanySettings>({
-    company_name: 'OmniSync',
+    company_name: 'Bytz360',
     currency: 'USD',
     invoice_prefix: 'INV-',
   });

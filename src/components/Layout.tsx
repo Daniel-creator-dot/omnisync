@@ -109,7 +109,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
     <div className="flex h-screen bg-slate-50 overflow-hidden relative">
       {/* Mobile Header */}
       <div className="lg:hidden absolute top-0 left-0 right-0 h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-30">
-        <span className="font-bold text-lg text-indigo-600 tracking-tight">OmniSync</span>
+        <span className="font-bold text-lg text-indigo-600 tracking-tight">Bytz360</span>
         <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </Button>
@@ -123,7 +123,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       >
         <div className="p-4 flex items-center justify-between border-b border-slate-100">
           {isSidebarOpen && (
-            <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-bold text-lg text-indigo-600 tracking-tight">OmniSync</motion.span>
+            <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-bold text-lg text-indigo-600 tracking-tight">Bytz360</motion.span>
           )}
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
             {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -171,7 +171,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         className="lg:hidden fixed top-0 left-0 bottom-0 w-[280px] bg-white z-50 flex flex-col shadow-2xl"
       >
         <div className="p-4 flex items-center justify-between border-b border-slate-100">
-          <span className="font-bold text-lg text-indigo-600 tracking-tight">OmniSync</span>
+          <span className="font-bold text-lg text-indigo-600 tracking-tight">Bytz360</span>
           <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(false)}>
             <X className="h-5 w-5" />
           </Button>

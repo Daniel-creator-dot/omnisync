@@ -349,7 +349,7 @@ const Invoices = () => {
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
                   <div>
-                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#4f46e5' }}>{inv.company?.company_name || 'OmniSync Insurance'}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: '#4f46e5' }}>{inv.company?.company_name || 'Bytz360 Insurance'}</div>
                     <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.6, marginTop: '4px' }}>
                       {inv.company?.address || '123 Business Ave'}<br/>
                       {inv.company?.city || 'New York'}, {inv.company?.state || 'NY'} {inv.company?.zip || '10001'}<br/>
@@ -444,7 +444,7 @@ const Invoices = () => {
                 )}
 
                 <div style={{ marginTop: '48px', textAlign: 'center', fontSize: '12px', color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
-                  {inv.company?.company_name || 'OmniSync Insurance'} • {inv.company?.phone || '(555) 123-4567'} • {inv.company?.email || 'billing@omnisync.com'}
+                  {inv.company?.company_name || 'Bytz360 Insurance'} • {inv.company?.phone || '(555) 123-4567'} • {inv.company?.email || 'billing@bytz360.com'}
                 </div>
               </div>
             </div>
