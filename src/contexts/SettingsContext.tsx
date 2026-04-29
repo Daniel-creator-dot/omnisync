@@ -43,7 +43,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     fetchSettings();
   }, []);
 
-  const currencySymbol = settings.currency || 'USD';
+  const currencySymbol = settings.currency || 'GH₵';
 
   const formatCurrency = (amount: number | string | undefined) => {
     const value = typeof amount === 'string' ? parseFloat(amount) : amount || 0;

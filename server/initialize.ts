@@ -60,7 +60,7 @@ export async function initializeDatabase() {
         logo_url TEXT,
         invoice_prefix VARCHAR(20) DEFAULT 'INV-',
         invoice_next_number INTEGER DEFAULT 1001,
-        currency VARCHAR(10) DEFAULT 'USD',
+        currency VARCHAR(10) DEFAULT 'GH₵',
         payment_terms TEXT DEFAULT 'Net 30',
         default_notes TEXT,
         updated_at TIMESTAMP DEFAULT NOW()
@@ -184,7 +184,7 @@ export async function initializeDatabase() {
         name VARCHAR(255) NOT NULL,
         account_number VARCHAR(100),
         bank_name VARCHAR(255),
-        currency VARCHAR(10) DEFAULT 'USD',
+        currency VARCHAR(10) DEFAULT 'GH₵',
         balance NUMERIC(14,2) DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
