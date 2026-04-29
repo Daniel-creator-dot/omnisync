@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { api, setToken, clearToken } from '../lib/api';
+import { api, setToken, clearToken, getToken } from '../lib/api';
 import { UserProfile } from '../types';
 
 interface AuthUser {
@@ -26,7 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Check if we have a stored token and validate it
-    const token = localStorage.getItem('omnisync_token');
+    const token = getToken();
     if (token) {
       api.get('/auth/me')
         .then((data) => {

@@ -4,7 +4,7 @@ if (API_BASE && !API_BASE.endsWith('/api') && !API_BASE.endsWith('/api/')) {
   API_BASE = API_BASE.replace(/\/$/, '') + '/api';
 }
 
-function getToken(): string | null {
+export function getToken(): string | null {
   return localStorage.getItem('bytz360_token');
 }
 
@@ -32,9 +32,12 @@ async function request(method: string, path: string, body?: any) {
   });
 
   if (res.status === 401) {
-    clearToken();
-    window.location.reload();
-    throw new Error('Unauthorized');
+    if (!path.includes('/auth/login')) {
+      clearToken();
+      window.location.reload();
+    }
+    const err = await res.json().catch(() => ({ error: 'Unauthorized' }));
+    throw new Error(err.error || 'Unauthorized');
   }
 
   if (!res.ok) {
