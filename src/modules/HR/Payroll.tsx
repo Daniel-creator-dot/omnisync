@@ -28,6 +28,40 @@ const PayrollModule = () => {
     deductionPercent: 0,
   });
 
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (isRunOpen) {
+      const fetchActiveEmployees = async () => {
+        try {
+          const data = await api.get('/employees');
+          const activeEmps = data.filter((emp: any) => emp.status === 'active');
+          setEmployees(activeEmps);
+          setSelectedEmployeeIds(activeEmps.map((emp: any) => emp.id));
+        } catch (error) {
+          toast.error('Failed to fetch active employees for selection');
+          console.error(error);
+        }
+      };
+      fetchActiveEmployees();
+    }
+  }, [isRunOpen]);
+
+  const handleSelectEmployee = (id: number) => {
+    setSelectedEmployeeIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleAll = () => {
+    if (selectedEmployeeIds.length === employees.length) {
+      setSelectedEmployeeIds([]);
+    } else {
+      setSelectedEmployeeIds(employees.map(emp => emp.id));
+    }
+  };
+
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
   const fetchPeriods = async () => {
@@ -62,9 +96,16 @@ const PayrollModule = () => {
 
   const runBatchPayroll = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedEmployeeIds.length === 0) {
+      toast.error('Please select at least one employee to run payroll for.');
+      return;
+    }
     setProcessing(true);
     try {
-      const result = await api.post('/payroll/run-batch', batchForm);
+      const result = await api.post('/payroll/run-batch', {
+        ...batchForm,
+        employeeIds: selectedEmployeeIds
+      });
       toast.success(result.message || 'Payroll processed');
       setIsRunOpen(false);
       setBatchForm({ month: new Date().getMonth() + 1, year: new Date().getFullYear(), bonusPercent: 0, deductionPercent: 0 });
@@ -79,10 +120,22 @@ const PayrollModule = () => {
   };
 
   const approveBatch = async (month: number, year: number) => {
-    if (!confirm(`Approve and mark all payroll for ${months[month - 1]} ${year} as paid?`)) return;
+    if (!confirm(`Approve all payroll records for ${months[month - 1]} ${year}?`)) return;
     try {
       const result = await api.put('/payroll/approve-batch', { month, year });
       toast.success(result.message || 'Batch approved');
+      const key = `${month}-${year}`;
+      setPeriodRecords(prev => ({ ...prev, [key]: undefined as any }));
+      fetchPeriodRecords(month, year);
+      fetchPeriods();
+    } catch (error: any) { toast.error(error.message); }
+  };
+
+  const payBatch = async (month: number, year: number) => {
+    if (!confirm(`Mark all approved payroll records for ${months[month - 1]} ${year} as paid?`)) return;
+    try {
+      const result = await api.put('/payroll/pay-batch', { month, year });
+      toast.success(result.message || 'Batch paid');
       const key = `${month}-${year}`;
       setPeriodRecords(prev => ({ ...prev, [key]: undefined as any }));
       fetchPeriodRecords(month, year);
@@ -116,7 +169,7 @@ const PayrollModule = () => {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Run Batch Payroll</DialogTitle></DialogHeader>
-            <p className="text-sm text-slate-500 mt-1">This will process payroll for <strong>all active employees</strong> based on their salary.</p>
+            <p className="text-sm text-slate-500 mt-1">This will process payroll for the selected active employees based on their salary.</p>
             <form onSubmit={runBatchPayroll} className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -143,11 +196,44 @@ const PayrollModule = () => {
                   <p className="text-xs text-slate-400">Applied to base salary</p>
                 </div>
               </div>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <p className="text-sm text-amber-700"><strong>Note:</strong> Payroll will be calculated for all active employees using their recorded salary as the base. Bonus and deduction percentages are applied on top.</p>
+              
+              {/* Staff Selector Checkbox List */}
+              <div className="space-y-2 border-t pt-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Select Staff to Process</Label>
+                  <button 
+                    type="button" 
+                    onClick={handleToggleAll} 
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
+                    {selectedEmployeeIds.length === employees.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
+                <div className="border border-slate-200 rounded-lg p-3 max-h-[180px] overflow-y-auto space-y-2 bg-slate-50">
+                  {employees.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-2">No active employees found.</p>
+                  ) : (
+                    employees.map(emp => (
+                      <label key={emp.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-100/50 p-1 rounded transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedEmployeeIds.includes(emp.id)}
+                          onChange={() => handleSelectEmployee(emp.id)}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>{emp.name} <span className="text-xs text-slate-400">({emp.department})</span></span>
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">{selectedEmployeeIds.length} of {employees.length} staff selected</p>
               </div>
-              <Button type="submit" className="w-full bg-indigo-600" disabled={processing}>
-                {processing ? 'Processing...' : 'Run Payroll for All Employees'}
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-700"><strong>Note:</strong> Payroll will be calculated using employee salary as base. Batch bonus/deduction percentages and employee-specific deductions will be applied automatically.</p>
+              </div>
+              <Button type="submit" className="w-full bg-indigo-600" disabled={processing || selectedEmployeeIds.length === 0}>
+                {processing ? 'Processing...' : `Run Payroll for ${selectedEmployeeIds.length} Selected Staff`}
               </Button>
             </form>
           </DialogContent>
@@ -209,9 +295,19 @@ const PayrollModule = () => {
                       <div className="flex items-center gap-4">
                         <p className="font-bold text-slate-900">{currencySymbol}{parseFloat(period.total_net || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="sm" onClick={() => approveBatch(period.month, period.year)} className="text-emerald-500 hover:text-emerald-700 gap-1" title="Approve all">
-                            <CheckCircle className="h-4 w-4" /> <span className="hidden sm:inline">Approve</span>
-                          </Button>
+                          {period.pending_count > 0 && (
+                            <Button variant="ghost" size="sm" onClick={() => approveBatch(period.month, period.year)} className="text-amber-600 hover:text-amber-800 gap-1" title="Approve pending">
+                              <CheckCircle className="h-4 w-4" /> <span className="hidden sm:inline">Approve</span>
+                            </Button>
+                          )}
+                          {period.approved_count > 0 && (
+                            <Button variant="ghost" size="sm" onClick={() => payBatch(period.month, period.year)} className="text-emerald-600 hover:text-emerald-800 gap-1" title="Pay approved">
+                              <DollarSign className="h-4 w-4" /> <span className="hidden sm:inline">Pay Staff</span>
+                            </Button>
+                          )}
+                          {period.pending_count === 0 && period.approved_count === 0 && (
+                            <Badge className="bg-emerald-100 text-emerald-700 border-none hover:bg-emerald-100 shrink-0 self-center">Fully Paid</Badge>
+                          )}
                           <Button variant="ghost" size="sm" onClick={() => deletePeriod(period.month, period.year)} className="text-red-500 hover:text-red-700" title="Delete period">
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -247,7 +343,15 @@ const PayrollModule = () => {
                                     <TableCell className="hidden md:table-cell text-rose-600">-{currencySymbol}{parseFloat(r.deductions || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                                     <TableCell className="font-bold">{currencySymbol}{parseFloat(r.net_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                                     <TableCell>
-                                      <Badge className={r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>{r.status}</Badge>
+                                      <Badge className={
+                                        r.status === 'paid' 
+                                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none' 
+                                          : r.status === 'approved' 
+                                            ? 'bg-sky-100 text-sky-700 hover:bg-sky-100 border-none' 
+                                            : 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-none'
+                                      }>
+                                        {r.status}
+                                      </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
                                       <Button variant="ghost" size="icon" onClick={() => setViewingRecord(r)} title="View Payslip">
@@ -351,7 +455,13 @@ const PayrollModule = () => {
                       <h4 className="text-3xl font-black">{currencySymbol}{parseFloat(viewingRecord.net_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</h4>
                     </div>
                     <div className="text-right">
-                      <Badge className={viewingRecord.status === 'paid' ? 'bg-emerald-400/20 text-emerald-50 text-xs border-emerald-400/30' : 'bg-amber-400/20 text-amber-50 text-xs border-amber-400/30'}>
+                      <Badge className={
+                        viewingRecord.status === 'paid' 
+                          ? 'bg-emerald-400/20 text-emerald-50 text-xs border-emerald-400/30 hover:bg-emerald-400/20' 
+                          : viewingRecord.status === 'approved'
+                            ? 'bg-sky-400/20 text-sky-50 text-xs border-sky-400/30 hover:bg-sky-400/20'
+                            : 'bg-amber-400/20 text-amber-50 text-xs border-amber-400/30 hover:bg-amber-400/20'
+                      }>
                         {viewingRecord.status.toUpperCase()}
                       </Badge>
                       <p className="text-[10px] text-indigo-200 mt-2 font-mono">ID: {viewingRecord.id}</p>

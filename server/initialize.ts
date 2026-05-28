@@ -37,6 +37,8 @@ export async function initializeDatabase() {
         join_date DATE,
         status VARCHAR(50) DEFAULT 'active',
         manager_id INTEGER REFERENCES employees(id),
+        deduction_type VARCHAR(50) DEFAULT 'none',
+        deduction_value NUMERIC(12,2) DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP
       );
@@ -520,6 +522,8 @@ export async function initializeDatabase() {
     await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS phone VARCHAR(20)');
     await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS manager_id INTEGER REFERENCES employees(id)');
     await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_title VARCHAR(255)');
+    await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS deduction_type VARCHAR(50) DEFAULT \'none\'');
+    await client.query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS deduction_value NUMERIC(12,2) DEFAULT 0');
     await client.query('ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS payment_terms TEXT DEFAULT \'Net 30\'');
     await client.query('ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS default_notes TEXT');
     // exit_management patches

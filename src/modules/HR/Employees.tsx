@@ -25,7 +25,8 @@ const Employees = () => {
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
   const [newEmployee, setNewEmployee] = useState({
     name: '', email: '', phone: '', position: '', department: '', salary: 0,
-    joinDate: new Date().toISOString().split('T')[0], status: 'active' as Employee['status'], role: 'employee'
+    joinDate: new Date().toISOString().split('T')[0], status: 'active' as Employee['status'], role: 'employee',
+    deductionType: 'none' as 'none' | 'percentage' | 'raw', deductionValue: 0
   });
 
   const fetchEmployees = async () => {
@@ -42,15 +43,15 @@ const Employees = () => {
     e.preventDefault();
     try {
       if (editingEmployee) {
-        await api.put(`/employees/${editingEmployee.id}`, { ...newEmployee, salary: Number(newEmployee.salary) });
+        await api.put(`/employees/${editingEmployee.id}`, { ...newEmployee, salary: Number(newEmployee.salary), deductionValue: Number(newEmployee.deductionValue) });
         toast.success('Employee updated');
       } else {
-        await api.post('/employees', { ...newEmployee, salary: Number(newEmployee.salary) });
+        await api.post('/employees', { ...newEmployee, salary: Number(newEmployee.salary), deductionValue: Number(newEmployee.deductionValue) });
         toast.success('Employee added');
       }
       setIsAddOpen(false);
       setEditingEmployee(null);
-      setNewEmployee({ name: '', email: '', phone: '', position: '', department: '', salary: 0, joinDate: new Date().toISOString().split('T')[0], status: 'active', role: 'employee' });
+      setNewEmployee({ name: '', email: '', phone: '', position: '', department: '', salary: 0, joinDate: new Date().toISOString().split('T')[0], status: 'active', role: 'employee', deductionType: 'none', deductionValue: 0 });
       fetchEmployees();
     } catch (error: any) {
       toast.error(error.message || 'Failed');
@@ -59,13 +60,25 @@ const Employees = () => {
 
   const openEdit = (emp: Employee) => {
     setEditingEmployee(emp);
-    setNewEmployee({ name: emp.name, email: emp.email, phone: (emp as any).phone || '', position: emp.position, department: emp.department, salary: emp.salary, joinDate: emp.joinDate || (emp as any).join_date, status: emp.status, role: 'employee' });
+    setNewEmployee({ 
+      name: emp.name, 
+      email: emp.email, 
+      phone: (emp as any).phone || '', 
+      position: emp.position, 
+      department: emp.department, 
+      salary: emp.salary, 
+      joinDate: emp.joinDate || (emp as any).join_date, 
+      status: emp.status, 
+      role: 'employee',
+      deductionType: emp.deduction_type || 'none',
+      deductionValue: emp.deduction_value ? Number(emp.deduction_value) : 0
+    });
     setIsAddOpen(true);
   };
 
   const openAdd = () => {
     setEditingEmployee(null);
-    setNewEmployee({ name: '', email: '', phone: '', position: '', department: '', salary: 0, joinDate: new Date().toISOString().split('T')[0], status: 'active', role: 'employee' });
+    setNewEmployee({ name: '', email: '', phone: '', position: '', department: '', salary: 0, joinDate: new Date().toISOString().split('T')[0], status: 'active', role: 'employee', deductionType: 'none', deductionValue: 0 });
     setIsAddOpen(true);
   };
 
@@ -84,7 +97,7 @@ const Employees = () => {
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Employees</h1>
         <Dialog open={isAddOpen} onOpenChange={(open) => {
           setIsAddOpen(open);
-          if (!open) { setEditingEmployee(null); setNewEmployee({ name: '', email: '', phone: '', position: '', department: '', salary: 0, joinDate: new Date().toISOString().split('T')[0], status: 'active', role: 'employee' }); }
+          if (!open) { setEditingEmployee(null); setNewEmployee({ name: '', email: '', phone: '', position: '', department: '', salary: 0, joinDate: new Date().toISOString().split('T')[0], status: 'active', role: 'employee', deductionType: 'none', deductionValue: 0 }); }
         }}>
           <DialogTrigger render={<Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 gap-2" onClick={openAdd} />}>
             <UserPlus className="h-4 w-4" /> Add Employee
@@ -151,6 +164,32 @@ const Employees = () => {
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="sm:col-span-1 space-y-2">
+                <Label htmlFor="deductionType">Deduction Type</Label>
+                <Select value={newEmployee.deductionType} onValueChange={(v: any) => setNewEmployee({...newEmployee, deductionType: v, deductionValue: v === 'none' ? 0 : newEmployee.deductionValue})} required>
+                  <SelectTrigger><SelectValue placeholder="Deduction Type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="percentage">Percentage (%)</SelectItem>
+                    <SelectItem value="raw">Fixed Amount</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="sm:col-span-1 space-y-2">
+                <Label htmlFor="deductionValue">
+                  Deduction Value {newEmployee.deductionType === 'percentage' ? '(%)' : `(${currencySymbol})`}
+                </Label>
+                <Input 
+                  id="deductionValue" 
+                  type="number" 
+                  step="0.01" 
+                  min="0"
+                  value={newEmployee.deductionValue} 
+                  onChange={e => setNewEmployee({...newEmployee, deductionValue: Number(e.target.value)})} 
+                  disabled={newEmployee.deductionType === 'none'} 
+                  required={newEmployee.deductionType !== 'none'} 
+                />
               </div>
               <Button type="submit" className="sm:col-span-2 bg-indigo-600 mt-2">
                 {editingEmployee ? 'Update Employee' : 'Add Employee'}
@@ -271,6 +310,19 @@ const Employees = () => {
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 bg-slate-100 p-1.5 rounded-lg"><DollarSign className="h-4 w-4 text-slate-500" /></div>
                     <div><p className="text-xs text-slate-500 uppercase font-semibold">Annual Salary</p><p className="text-sm font-medium">{currencySymbol}{viewingEmployee.salary.toLocaleString()}</p></div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 bg-slate-100 p-1.5 rounded-lg"><Trash2 className="h-4 w-4 text-rose-500" /></div>
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase font-semibold">Custom Deductions</p>
+                      <p className="text-sm font-medium">
+                        {viewingEmployee.deduction_type === 'percentage' 
+                          ? `${viewingEmployee.deduction_value}% of Base Salary` 
+                          : viewingEmployee.deduction_type === 'raw' 
+                            ? `${currencySymbol}${parseFloat(viewingEmployee.deduction_value as any || 0).toLocaleString()}` 
+                            : 'None'}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 bg-slate-100 p-1.5 rounded-lg"><Shield className="h-4 w-4 text-slate-500" /></div>

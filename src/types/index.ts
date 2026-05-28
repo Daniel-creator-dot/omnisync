@@ -197,6 +197,8 @@ export interface Employee {
   salary: number;
   joinDate: string;
   status: 'active' | 'inactive';
+  deduction_type?: 'none' | 'percentage' | 'raw';
+  deduction_value?: number;
 }
 
 export interface Payroll {

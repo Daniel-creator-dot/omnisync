@@ -40,11 +40,21 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/payroll/periods - get distinct processed periods
+// GET /api/payroll/periods - get distinct processed periods with status counts
 router.get('/periods', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query(
-      'SELECT DISTINCT month, year, COUNT(*)::int as employee_count, SUM(net_salary)::numeric as total_net FROM payroll GROUP BY month, year ORDER BY year DESC, month DESC'
+      `SELECT 
+        month, 
+        year, 
+        COUNT(*)::int as employee_count, 
+        SUM(net_salary)::numeric as total_net,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END)::int as pending_count,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END)::int as approved_count,
+        COUNT(CASE WHEN status = 'paid' THEN 1 END)::int as paid_count
+      FROM payroll 
+      GROUP BY month, year 
+      ORDER BY year DESC, month DESC`
     );
     res.json(result.rows);
   } catch (error) {
@@ -52,34 +62,67 @@ router.get('/periods', authMiddleware, async (req: AuthRequest, res: Response) =
   }
 });
 
-// POST /api/payroll/run-batch - run payroll for ALL active employees for a given month/year
+// POST /api/payroll/run-batch - run payroll for selected (or all active) employees for a given month/year
 router.post('/run-batch', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { month, year, bonusPercent = 0, deductionPercent = 0 } = req.body;
+    const { month, year, bonusPercent = 0, deductionPercent = 0, employeeIds } = req.body;
     if (!month || !year) return res.status(400).json({ error: 'Month and year are required' });
 
-    // Check if payroll already exists for this period
-    const existing = await pool.query('SELECT id FROM payroll WHERE month=$1 AND year=$2 LIMIT 1', [month, year]);
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ error: `Payroll already processed for ${month}/${year}. Delete first to re-run.` });
+    // Check if payroll already exists for the selected/all employees for this period
+    let checkQuery = 'SELECT id, employee_name FROM payroll WHERE month = $1 AND year = $2';
+    const checkParams: any[] = [month, year];
+    if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
+      checkQuery += ' AND employee_id = ANY($3)';
+      checkParams.push(employeeIds);
     }
 
-    // Fetch all active employees
-    const employees = await pool.query("SELECT id, name, salary FROM employees WHERE status = 'active'");
+    const existing = await pool.query(checkQuery, checkParams);
+    if (existing.rows.length > 0) {
+      const names = existing.rows.map(r => r.employee_name).join(', ');
+      return res.status(400).json({ 
+        error: `Payroll already processed for some employees (${names}) in ${month}/${year}. Delete existing records first.` 
+      });
+    }
+
+    // Fetch active employees (filtered by employeeIds if provided)
+    let empQuery = "SELECT id, name, salary, deduction_type, deduction_value FROM employees WHERE status = 'active'";
+    const empParams: any[] = [];
+    if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
+      empQuery += ' AND id = ANY($1)';
+      empParams.push(employeeIds);
+    } else if (employeeIds && Array.isArray(employeeIds) && employeeIds.length === 0) {
+      return res.status(400).json({ error: 'At least one employee must be selected' });
+    }
+
+    const employees = await pool.query(empQuery, empParams);
     if (employees.rows.length === 0) {
-      return res.status(400).json({ error: 'No active employees found' });
+      return res.status(400).json({ error: 'No active employees found matching criteria' });
     }
 
     const records: any[] = [];
     for (const emp of employees.rows) {
       const baseSalary = parseFloat(emp.salary) || 0;
       const bonuses = baseSalary * (bonusPercent / 100);
-      const deductions = baseSalary * (deductionPercent / 100);
-      const netSalary = baseSalary + bonuses - deductions;
+      
+      // Calculate general deduction
+      const baseDeductions = baseSalary * (deductionPercent / 100);
+      
+      // Calculate employee-specific deduction
+      const empDeductionType = emp.deduction_type || 'none';
+      const empDeductionVal = parseFloat(emp.deduction_value) || 0;
+      let specificDeduction = 0;
+      if (empDeductionType === 'percentage') {
+        specificDeduction = baseSalary * (empDeductionVal / 100);
+      } else if (empDeductionType === 'raw') {
+        specificDeduction = empDeductionVal;
+      }
+      
+      const totalDeductions = baseDeductions + specificDeduction;
+      const netSalary = baseSalary + bonuses - totalDeductions;
 
       const result = await pool.query(
         'INSERT INTO payroll (employee_id, employee_name, month, year, base_salary, bonuses, deductions, net_salary, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
-        [emp.id, emp.name, month, year, baseSalary, bonuses, deductions, netSalary, 'pending']
+        [emp.id, emp.name, month, year, baseSalary, bonuses, totalDeductions, netSalary, 'pending']
       );
       records.push(result.rows[0]);
     }
@@ -96,10 +139,24 @@ router.put('/approve-batch', authMiddleware, async (req: AuthRequest, res: Respo
   try {
     const { month, year } = req.body;
     const result = await pool.query(
-      "UPDATE payroll SET status='paid' WHERE month=$1 AND year=$2 AND status='pending' RETURNING *",
+      "UPDATE payroll SET status='approved' WHERE month=$1 AND year=$2 AND status='pending' RETURNING *",
       [month, year]
     );
     res.json({ message: `${result.rows.length} records approved`, records: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT /api/payroll/pay-batch - pay all payroll records for a period
+router.put('/pay-batch', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { month, year } = req.body;
+    const result = await pool.query(
+      "UPDATE payroll SET status='paid' WHERE month=$1 AND year=$2 AND status='approved' RETURNING *",
+      [month, year]
+    );
+    res.json({ message: `${result.rows.length} records marked as paid`, records: result.rows });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }

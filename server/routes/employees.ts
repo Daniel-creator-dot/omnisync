@@ -32,12 +32,12 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { name, email, phone, position, department, salary, joinDate, status, role } = req.body;
+    const { name, email, phone, position, department, salary, joinDate, status, role, deductionType, deductionValue } = req.body;
     
     // Insert into employees
     const empResult = await client.query(
-      'INSERT INTO employees (name, email, phone, position, department, salary, join_date, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [name, email, phone, position, department, salary, joinDate, status || 'active']
+      'INSERT INTO employees (name, email, phone, position, department, salary, join_date, status, deduction_type, deduction_value) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [name, email, phone, position, department, salary, joinDate, status || 'active', deductionType || 'none', deductionValue || 0]
     );
 
     // Provide immediate application access via Users table
@@ -89,7 +89,9 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
       joinDate: 'join_date', 
       status: 'status',
       managerId: 'manager_id',
-      jobTitle: 'job_title'
+      jobTitle: 'job_title',
+      deductionType: 'deduction_type',
+      deductionValue: 'deduction_value'
     };
     const fields: string[] = [];
     const values: any[] = [];
