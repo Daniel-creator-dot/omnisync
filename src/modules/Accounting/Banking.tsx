@@ -72,7 +72,7 @@ const Banking = () => {
                 </div>
                 <div className="space-y-2"><Label>To</Label>
                   <Select onValueChange={(v: string) => setTransferForm({...transferForm, toAccountId: v})}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{accounts.map(a => <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>)}</SelectContent></Select>
+                    <SelectContent>{accounts.map(a => <SelectItem key={a.id} value={a.id.toString()}>{a.name} ({currencySymbol}{parseFloat(a.balance).toLocaleString()})</SelectItem>)}</SelectContent></Select>
                 </div>
                 <div className="space-y-2"><Label>Amount ({currencySymbol})</Label><Input type="number" step="0.01" value={transferForm.amount} onChange={e => setTransferForm({...transferForm, amount: Number(e.target.value)})} required /></div>
                 <div className="space-y-2"><Label>Description</Label><Input value={transferForm.description} onChange={e => setTransferForm({...transferForm, description: e.target.value})} /></div>
@@ -110,18 +110,97 @@ const Banking = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? <p className="text-slate-500 col-span-full text-center py-10">Loading...</p> :
           accounts.length === 0 ? <p className="text-slate-500 col-span-full text-center py-10">No bank accounts. Add one to get started.</p> :
-          accounts.map((a: any) => (
-            <Card key={a.id} className="bg-white border-slate-200 hover:border-indigo-200 transition-colors">
-              <CardHeader className="pb-2 flex flex-row items-start justify-between">
-                <div className="flex items-center gap-3"><div className="bg-indigo-100 p-2 rounded-lg"><Landmark className="h-5 w-5 text-indigo-600" /></div><div><CardTitle className="text-base">{a.name}</CardTitle><p className="text-xs text-slate-500">{a.bank_name || 'Bank'} • {a.account_number ? `****${a.account_number.slice(-4)}` : ''}</p></div></div>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="text-indigo-500 h-8 w-8" onClick={() => setViewingAccount(a)} title="View Detail"><Eye className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="text-red-400 h-8 w-8" onClick={() => deleteAccount(a.id)} title="Delete"><Trash2 className="h-4 w-4" /></Button>
+          accounts.map((a: any, idx: number) => {
+            const cardGradients = [
+              'from-indigo-600 via-indigo-700 to-slate-900',
+              'from-teal-600 via-teal-700 to-slate-900',
+              'from-violet-600 via-violet-700 to-slate-900',
+              'from-blue-600 via-blue-700 to-slate-900',
+            ];
+            const gradient = cardGradients[idx % cardGradients.length];
+
+            return (
+              <div 
+                key={a.id} 
+                className={`relative overflow-hidden rounded-2xl p-6 text-white bg-gradient-to-br ${gradient} shadow-lg border border-white/10 hover:shadow-xl hover:scale-[1.01] transition-all duration-300 group`}
+              >
+                {/* Glassmorphic decorative circles */}
+                <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-colors duration-300"></div>
+                <div className="absolute -left-10 -top-10 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-colors duration-300"></div>
+
+                {/* Card Header: Institution Info & Action Buttons */}
+                <div className="flex items-start justify-between relative z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/10 p-2 rounded-lg backdrop-blur-md">
+                      <Landmark className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-white/95 leading-none">{a.bank_name || 'Bank'}</h4>
+                      <p className="text-[10px] text-white/60 tracking-wider font-semibold uppercase mt-1">Business Account</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 bg-black/15 p-1 rounded-lg backdrop-blur-sm opacity-90 group-hover:opacity-100 transition-opacity duration-300">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-white hover:text-indigo-200 hover:bg-white/10 h-7 w-7 rounded-md" 
+                      onClick={() => setViewingAccount(a)} 
+                      title="View Detail"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-white hover:text-red-300 hover:bg-white/10 h-7 w-7 rounded-md" 
+                      onClick={() => deleteAccount(a.id)} 
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent><p className="text-2xl font-bold text-slate-900">{currencySymbol}{parseFloat(a.balance).toLocaleString(undefined, {minimumFractionDigits:2})}</p><Badge variant="outline" className="mt-2 text-[10px]">{a.currency || currencySymbol}</Badge></CardContent>
-            </Card>
-          ))}
+
+                {/* Card Chip & Balance */}
+                <div className="mt-8 space-y-1 relative z-10">
+                  <div className="flex items-center justify-between">
+                    {/* Stylized Card Chip */}
+                    <div className="w-8 h-6 bg-gradient-to-br from-amber-300 to-amber-500 rounded-md relative overflow-hidden shadow-inner opacity-75">
+                      <div className="absolute inset-x-1.5 inset-y-1 border border-amber-900/10 flex flex-wrap gap-0.5">
+                        <div className="w-full border-b border-amber-900/10 h-0.5"></div>
+                        <div className="w-1/2 border-r border-amber-900/10 h-full"></div>
+                        <div className="w-1/2 h-full"></div>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Balance</span>
+                  </div>
+                  
+                  <div className="flex items-baseline justify-between pt-1">
+                    <h3 className="text-2xl font-black tracking-tight text-white">
+                      {currencySymbol}{parseFloat(a.balance).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                    </h3>
+                    <Badge className="bg-white/15 text-white hover:bg-white/20 border-none font-bold text-[9px] py-0.5 px-2 rounded-full uppercase tracking-wider backdrop-blur-md">
+                      {a.currency || 'USD'}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Card Footer: Holder Info & Card Number */}
+                <div className="mt-6 pt-3 border-t border-white/10 flex items-center justify-between relative z-10">
+                  <div className="space-y-0.5">
+                    <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Account Name</p>
+                    <p className="text-xs font-bold truncate max-w-[130px]">{a.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">Card Number</p>
+                    <span className="text-xs font-mono tracking-wider font-bold">
+                      {a.account_number ? `•••• ${a.account_number.slice(-4)}` : '•••• ••••'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
       </div>
 
       {/* Transfers History */}
