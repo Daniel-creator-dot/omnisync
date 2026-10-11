@@ -54,8 +54,11 @@ const FinancialReports = () => {
   };
 
   const fmt = (n: number) => currencySymbol + Math.abs(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
-  const totalAssets = bs ? (bs.assets.cash + bs.assets.accountsReceivable + bs.assets.fixedAssets + bs.assets.otherAssets) : 0;
-  const totalLiabilities = bs ? (bs.liabilities.accountsPayable + bs.liabilities.otherLiabilities) : 0;
+  const totalAssets = Number(bs?.totalAssets || 0);
+  const totalLiabilities = Number(bs?.totalLiabilities || 0);
+  const totalEquity = Number(bs?.totalEquity || 0);
+  const equationDifference = Number(bs?.difference ?? (totalAssets - totalLiabilities - totalEquity));
+  const booksInBalance = bs != null && Math.abs(equationDifference) < 0.01;
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
 
@@ -106,27 +109,45 @@ const FinancialReports = () => {
 
           {/* Balance Sheet */}
           <TabsContent value="bs" className="mt-6">
-            <Card><CardHeader className="border-b"><CardTitle>Balance Sheet</CardTitle><p className="text-sm text-slate-500">As of {new Date().toLocaleDateString()}</p></CardHeader>
+            <Card><CardHeader className="border-b">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle>Balance Sheet</CardTitle>
+                  <p className="text-sm text-slate-500">Total Assets = Total Liabilities + Total Equity. Income and expense stay off this statement and close into current earnings.</p>
+                </div>
+                <Badge className={booksInBalance ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}>
+                  {bs == null ? 'Balance sheet unavailable' : booksInBalance ? 'In balance' : `Out of balance by ${equationDifference < 0 ? '-' : ''}${fmt(equationDifference)}`}
+                </Badge>
+              </div>
+            </CardHeader>
               <CardContent className="py-6 space-y-6">
                 <div><h3 className="font-bold text-sm uppercase tracking-wider text-slate-400 mb-3">Assets</h3>
                   <div className="space-y-1">
-                    {[['Cash & Bank', bs?.assets?.cash], ['Accounts Receivable', bs?.assets?.accountsReceivable], ['Fixed Assets', bs?.assets?.fixedAssets], ['Other Assets', bs?.assets?.otherAssets]].map(([n, v]) => (
-                      <div key={n as string} className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>{n}</span><span className="font-medium">{fmt(v as number)}</span></div>
+                    {(bs?.assetAccounts || []).map((account: any) => (
+                      <div key={account.id} className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>{account.code} {account.name}</span><span className="font-medium">{fmt(account.balance)}</span></div>
                     ))}
                   </div>
                   <div className="flex justify-between py-2 px-3 bg-indigo-50 rounded-lg mt-2"><span className="font-bold">Total Assets</span><span className="font-bold text-indigo-600">{fmt(totalAssets)}</span></div></div>
                 <div><h3 className="font-bold text-sm uppercase tracking-wider text-slate-400 mb-3">Liabilities</h3>
                   <div className="space-y-1">
-                    {[['Accounts Payable', bs?.liabilities?.accountsPayable], ['Other Liabilities', bs?.liabilities?.otherLiabilities]].map(([n, v]) => (
-                      <div key={n as string} className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>{n}</span><span className="font-medium">{fmt(v as number)}</span></div>
+                    {(bs?.liabilityAccounts || []).map((account: any) => (
+                      <div key={account.id} className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>{account.code} {account.name}</span><span className="font-medium">{fmt(account.balance)}</span></div>
                     ))}
                   </div>
                   <div className="flex justify-between py-2 px-3 bg-amber-50 rounded-lg mt-2"><span className="font-bold">Total Liabilities</span><span className="font-bold text-amber-600">{fmt(totalLiabilities)}</span></div></div>
                 <div><h3 className="font-bold text-sm uppercase tracking-wider text-slate-400 mb-3">Equity</h3>
-                  <div className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>Owner's Equity</span><span className="font-medium">{fmt(bs?.equity)}</span></div>
-                  <div className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>Retained Earnings</span><span className="font-medium">{fmt(pnl?.netIncome)}</span></div>
-                  <div className="flex justify-between py-2 px-3 bg-violet-50 rounded-lg mt-2"><span className="font-bold">Total Equity</span><span className="font-bold text-violet-600">{fmt((bs?.equity || 0) + (pnl?.netIncome || 0))}</span></div></div>
-                <div className="border-t-2 border-slate-900 pt-4"><div className="flex justify-between py-3 px-4 rounded-lg bg-slate-900 text-white"><span className="font-bold text-lg">Total L + E</span><span className="font-bold text-lg">{fmt(totalLiabilities + (bs?.equity || 0) + (pnl?.netIncome || 0))}</span></div></div>
+                  {(bs?.equityAccounts || []).map((account: any) => (
+                    <div key={account.id} className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>{account.code} {account.name}</span><span className="font-medium">{fmt(account.balance)}</span></div>
+                  ))}
+                  <div className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>Current earnings (income − expenses)</span><span className="font-medium">{fmt(bs?.currentEarnings)}</span></div>
+                  <div className="flex justify-between py-2 px-3 bg-violet-50 rounded-lg mt-2"><span className="font-bold">Total Equity</span><span className="font-bold text-violet-600">{fmt(totalEquity)}</span></div></div>
+                <div className="border-t-2 border-slate-900 pt-4 space-y-2">
+                  <div className="flex justify-between py-3 px-4 rounded-lg bg-slate-900 text-white"><span className="font-bold text-lg">Total Liabilities + Equity</span><span className="font-bold text-lg">{fmt(totalLiabilities + totalEquity)}</span></div>
+                  <div className={`flex justify-between py-3 px-4 rounded-lg ${booksInBalance ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
+                    <span className="font-bold">Difference (Assets − Liabilities − Equity)</span>
+                    <span className="font-bold">{equationDifference < 0 ? '-' : ''}{fmt(equationDifference)}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

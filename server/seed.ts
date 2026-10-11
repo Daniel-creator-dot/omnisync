@@ -2,6 +2,7 @@ import pool from './db';
 import bcrypt from 'bcryptjs';
 
 async function seed() {
+  throw new Error('Local seed is disabled so it cannot write the old OmniSync user columns into the existing users table.');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

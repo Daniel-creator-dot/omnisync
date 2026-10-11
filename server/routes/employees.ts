@@ -46,12 +46,11 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     if (checkUser.rows.length === 0) {
       const defaultHash = await bcrypt.hash('zxcv123$$', 10);
       await client.query(
-        'INSERT INTO users (email, password_hash, display_name, role, department, phone) VALUES ($1, $2, $3, $4, $5, $6)',
-        [email, defaultHash, name, role || 'employee', department, phone]
+        'INSERT INTO users (email, password, name, role, phone_number, is_active) VALUES ($1, $2, $3, $4, $5, true)',
+        [email, defaultHash, name, role || 'employee', phone]
       );
     } else {
-      // Update phone for existing user if linked to this employee
-      await client.query('UPDATE users SET phone = $1 WHERE email = $2', [phone, email]);
+      await client.query('UPDATE users SET phone_number = $1 WHERE email = $2', [phone, email]);
     }
 
     await client.query('COMMIT');
@@ -119,10 +118,9 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     const userValues: any[] = [];
     let uIdx = 1;
 
-    if (req.body.name !== undefined) { userUpdates.push(`display_name=$${uIdx++}`); userValues.push(req.body.name); }
-    if (req.body.phone !== undefined) { userUpdates.push(`phone=$${uIdx++}`); userValues.push(req.body.phone); }
+    if (req.body.name !== undefined) { userUpdates.push(`name=$${uIdx++}`); userValues.push(req.body.name); }
+    if (req.body.phone !== undefined) { userUpdates.push(`phone_number=$${uIdx++}`); userValues.push(req.body.phone); }
     if (req.body.email !== undefined) { userUpdates.push(`email=$${uIdx++}`); userValues.push(req.body.email); }
-    if (req.body.department !== undefined) { userUpdates.push(`department=$${uIdx++}`); userValues.push(req.body.department); }
 
     if (userUpdates.length > 0) {
       userValues.push(oldEmail);

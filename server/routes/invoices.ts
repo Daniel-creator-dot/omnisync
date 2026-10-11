@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { postJournal } from '../ledger';
 
 const router = Router();
 
@@ -123,21 +124,19 @@ router.post('/:id/payment', authMiddleware, async (req: AuthRequest, res: Respon
 
     await client.query('UPDATE invoices SET amount_paid=$1, balance_due=$2, status=$3 WHERE id=$4', [totalPaid, Math.max(0, balanceDue), newStatus, invoiceId]);
 
-    // 3. Update General Ledger (Cash increase, AR decrease)
-    // Account 1000 - Cash (Asset, Debit+)
-    // Account 1100 - Accounts Receivable (Asset, Credit-)
-    await client.query('UPDATE accounts SET balance = balance + $1 WHERE code = $2', [paymentAmount, '1000']);
-    await client.query('UPDATE accounts SET balance = balance - $1 WHERE code = $2', [paymentAmount, '1100']);
-
-    // 4. Create Journal Entry for audit trail
-    const jeLines = [
-      { accountId: (await client.query("SELECT id FROM accounts WHERE code='1000'")).rows[0]?.id, accountName: 'Cash', type: 'debit', amount: paymentAmount },
-      { accountId: (await client.query("SELECT id FROM accounts WHERE code='1100'")).rows[0]?.id, accountName: 'Accounts Receivable', type: 'credit', amount: paymentAmount }
-    ];
-    await client.query(
-      'INSERT INTO journal_entries (date, description, reference, lines) VALUES ($1,$2,$3,$4)',
-      [date || new Date().toISOString().split('T')[0], `Payment for Invoice #${invoiceId}`, reference || `PAY-${invoiceId}`, JSON.stringify(jeLines)]
-    );
+    const cash = await client.query("SELECT id, name FROM chart_of_accounts WHERE code = '1000'");
+    const receivable = await client.query("SELECT id, name FROM chart_of_accounts WHERE code = '1100'");
+    if (cash.rows[0] && receivable.rows[0] && paymentAmount > 0) {
+      await postJournal(client, {
+        date: date || new Date().toISOString().split('T')[0],
+        description: `Payment for Invoice #${invoiceId}`,
+        reference: reference || `PAY-${invoiceId}`,
+        lines: [
+          { accountId: cash.rows[0].id, accountName: cash.rows[0].name, type: 'debit', amount: paymentAmount },
+          { accountId: receivable.rows[0].id, accountName: receivable.rows[0].name, type: 'credit', amount: paymentAmount },
+        ],
+      });
+    }
 
     await client.query('COMMIT');
     res.json({ message: 'Payment recorded and ledger updated', totalPaid, balanceDue: Math.max(0, balanceDue), status: newStatus });

@@ -12,7 +12,11 @@ import Banking from './modules/Accounting/Banking';
 import Accounts from './modules/Accounting/Accounts';
 import Contacts from './modules/Accounting/Contacts';
 import Inventory from './modules/Accounting/Inventory';
+import FixedAssets from './modules/Accounting/FixedAssets';
+import Budgeting from './modules/Accounting/Budgeting';
+import Expenses from './modules/Accounting/Expenses';
 import AccountingSettings from './modules/Accounting/AccountingSettings';
+import InsuranceDesk from './modules/Insurance/InsuranceDesk';
 import TaxManagement from './modules/Accounting/TaxManagement';
 import FinancialReports from './modules/Accounting/FinancialReports';
 import HRReports from './modules/HR/HRReports';
@@ -58,6 +62,9 @@ function AppContent() {
       case 'acc-purchases': return <Purchases />;
       case 'acc-banking': return <Banking />;
       case 'acc-accounts': return <Accounts />;
+      case 'acc-expenses': return <Expenses />;
+      case 'acc-assets': return <FixedAssets />;
+      case 'acc-budgets': return <Budgeting />;
       case 'acc-contacts': return <Contacts />;
       case 'acc-inventory': return <Inventory />;
       case 'acc-reports': return <FinancialReports />;
@@ -77,6 +84,13 @@ function AppContent() {
       case 'ess': return <SelfService />;
       case 'hr-reports': return <HRReports />;
       case 'hr-settings': return <HRSettings />;
+      case 'ins-clients':
+      case 'ins-policies':
+      case 'ins-leads':
+      case 'ins-products':
+      case 'ins-commissions':
+      case 'ins-cashbook':
+        return <InsuranceDesk section={activeTab} />;
       default: return <Dashboard />;
     }
   };

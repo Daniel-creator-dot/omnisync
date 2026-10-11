@@ -1,5 +1,5 @@
-const isProd = typeof window !== 'undefined' && window.location.hostname === 'bytz360-pd01.onrender.com';
-let API_BASE = (import.meta as any).env.VITE_API_URL || (isProd ? 'https://bytz360b.onrender.com/api' : '/api');
+const isProd = typeof window !== 'undefined' && window.location.hostname === 'omnisync-dsfb.onrender.com';
+let API_BASE = (import.meta as any).env.VITE_API_URL || (isProd ? 'https://omnisyncback.onrender.com/api' : '/api');
 if (API_BASE && !API_BASE.endsWith('/api') && !API_BASE.endsWith('/api/')) {
   API_BASE = API_BASE.replace(/\/$/, '') + '/api';
 }

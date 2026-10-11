@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'omnisync-secret-key-2024';
+import { JWT_SECRET } from '../secret';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -9,7 +8,6 @@ export interface AuthRequest extends Request {
     email: string;
     role: string;
     display_name: string;
-    department: string;
   };
 }
 
@@ -21,7 +19,7 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as AuthRequest['user'];
     req.user = decoded;
     next();
   } catch {

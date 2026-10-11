@@ -2,6 +2,7 @@ import pool from './db';
 import bcrypt from 'bcryptjs';
 
 export async function initializeDatabase() {
+  throw new Error('initializeDatabase is disabled. The insurance Supabase project already has its tables; adding the suite schema is done with migrations.');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

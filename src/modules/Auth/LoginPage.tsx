@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogIn, ShieldCheck, Zap, BarChart3, AlertCircle } from 'lucide-react';
+import { LogIn, AlertCircle, Landmark, Users, Shield } from 'lucide-react';
 import ForgotPassword from './ForgotPassword';
 
 const LoginPage = () => {
@@ -29,118 +29,115 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 relative overflow-hidden p-6">
-      {/* Decorative background elements */}
-      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-indigo-200/40 rounded-full blur-[120px] -mr-96 -mt-96 opacity-50 pointer-events-none"></div>
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-200/40 rounded-full blur-[100px] -ml-64 -mb-64 opacity-50 pointer-events-none"></div>
-
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-xl w-full relative z-10"
-      >
-        <div className="text-center mb-10">
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/20">
-              <Zap className="h-8 w-8 text-white" />
-            </div>
-            <span className="text-4xl font-extrabold tracking-tight text-slate-900">Bytz360</span>
+    <div className="min-h-screen w-full bg-[#eef1f7] lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-slate-950 text-white px-12 py-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.35),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.2),transparent_40%)]" />
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500">
+            <Landmark className="h-4 w-4" />
           </div>
-          <h2 className="text-3xl font-bold text-slate-900 mb-3">Welcome back</h2>
-          <p className="text-slate-500 text-lg">Sign in to manage your business with precision</p>
+          <span className="text-lg font-semibold tracking-tight">Bytz360</span>
         </div>
+        <div className="relative max-w-md">
+          <p className="text-sm font-medium text-indigo-200">Accounting, people, and insurance</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight leading-[1.1]">A calmer desk for the whole business.</h1>
+          <ul className="mt-8 space-y-4 text-sm text-slate-300">
+            <li className="flex gap-3"><Landmark className="mt-0.5 h-4 w-4 text-indigo-300 shrink-0" /> Ledgers, invoices, and reports that stay in balance.</li>
+            <li className="flex gap-3"><Users className="mt-0.5 h-4 w-4 text-indigo-300 shrink-0" /> Payroll, leave, and the rest of the HR suite.</li>
+            <li className="flex gap-3"><Shield className="mt-0.5 h-4 w-4 text-indigo-300 shrink-0" /> Clients, policies, leads, and products in one place.</li>
+          </ul>
+        </div>
+        <p className="relative text-xs text-slate-500">Total Assets = Total Liabilities + Total Equity</p>
+      </aside>
 
-        <div className="bg-white/80 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-2xl shadow-slate-200/50 border border-white">
-          <AnimatePresence mode="wait">
-            {!isForgotMode ? (
-              <motion.div
-                key="login"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
-                {error && (
-                  <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-3 text-rose-700 text-sm">
-                    <AlertCircle className="h-5 w-5 shrink-0" />
-                    {error}
-                  </div>
-                )}
+      <main className="flex min-h-screen items-center justify-center px-5 py-10">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-[420px]"
+        >
+          <div className="mb-8 lg:hidden flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white">
+              <Landmark className="h-4 w-4" />
+            </div>
+            <span className="text-lg font-semibold tracking-tight text-slate-900">Bytz360</span>
+          </div>
+          <div className="rounded-2xl bg-white px-6 py-7 shadow-[0_1px_2px_rgba(15,23,42,0.05),0_16px_40px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 sm:px-8">
+            <AnimatePresence mode="wait">
+              {!isForgotMode ? (
+                <motion.div key="login" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}>
+                  <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Sign in</h2>
+                  <p className="mt-1 text-sm text-slate-500">Use your work email to open the desk.</p>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-2 pt-2">
-                    <Label htmlFor="email" className="text-slate-700 font-medium">Email Address</Label>
-                    <Input 
-                      id="email" 
-                      type="email" 
-                      placeholder="admin@bytz360.com"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      required
-                      className="h-14 bg-white text-base rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 transition-shadow"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="password" className="text-slate-700 font-medium">Password</Label>
-                      <button 
-                        type="button"
-                        onClick={() => setIsForgotMode(true)}
-                        className="text-sm font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
-                      >
-                        Forgot password?
-                      </button>
+                  {error && (
+                    <div className="mt-5 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      {error}
                     </div>
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      required
-                      className="h-14 bg-white text-base rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 transition-shadow"
-                    />
-                  </div>
-                  
-                  <div className="pt-2">
-                    <Button 
+                  )}
+
+                  <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="email" className="text-slate-700">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@company.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                        className="h-10 bg-white"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="password" className="text-slate-700">Password</Label>
+                        <button
+                          type="button"
+                          onClick={() => setIsForgotMode(true)}
+                          className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                        className="h-10 bg-white"
+                      />
+                    </div>
+                    <Button
                       type="submit"
                       disabled={isLoading}
-                      className="w-full h-14 text-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-3 rounded-xl shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98]"
+                      className="h-10 w-full bg-indigo-600 text-white hover:bg-indigo-700"
                     >
                       {isLoading ? (
-                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                       ) : (
                         <>
-                          <LogIn className="h-5 w-5" />
-                          Sign In
+                          <LogIn className="h-4 w-4" />
+                          Sign in
                         </>
                       )}
                     </Button>
-                  </div>
-                </form>
-
-
-              </motion.div>
-            ) : (
-              <motion.div
-                key="forgot"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-              >
-                <ForgotPassword onBack={() => setIsForgotMode(false)} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <p className="mt-10 text-center text-sm text-slate-500">
-          By signing in, you agree to our <br className="sm:hidden" />
-          <a href="#" className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors">Terms of Service</a>
-          {' '}and{' '}
-          <a href="#" className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors">Privacy Policy</a>
-        </p>
-      </motion.div>
+                  </form>
+                </motion.div>
+              ) : (
+                <motion.div key="forgot" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}>
+                  <ForgotPassword onBack={() => setIsForgotMode(false)} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <p className="mt-5 text-center text-xs text-slate-500">
+            By signing in, you agree to the Terms of Service and Privacy Policy.
+          </p>
+        </motion.div>
+      </main>
     </div>
   );
 };

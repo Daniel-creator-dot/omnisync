@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { balanceSheet, loadAccounts, profitAndLoss, trialBalance } from '../ledger';
 
 const router = Router();
 
@@ -28,13 +29,13 @@ router.delete('/departments/:id', authMiddleware, async (req: AuthRequest, res: 
 
 // ============ POLICIES ============
 router.get('/policies', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try { res.json((await pool.query('SELECT * FROM policies ORDER BY title')).rows); } catch { res.status(500).json({ error: 'Server error' }); }
+  try { res.json((await pool.query('SELECT * FROM hr_policies ORDER BY title')).rows); } catch { res.status(500).json({ error: 'Server error' }); }
 });
 router.post('/policies', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try { const { title, content, category } = req.body; res.status(201).json((await pool.query('INSERT INTO policies (title,content,category) VALUES ($1,$2,$3) RETURNING *', [title, content, category])).rows[0]); } catch { res.status(500).json({ error: 'Server error' }); }
+  try { const { title, content, category } = req.body; res.status(201).json((await pool.query('INSERT INTO hr_policies (title,content,category) VALUES ($1,$2,$3) RETURNING *', [title, content, category])).rows[0]); } catch { res.status(500).json({ error: 'Server error' }); }
 });
 router.delete('/policies/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try { await pool.query('DELETE FROM policies WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch { res.status(500).json({ error: 'Server error' }); }
+  try { await pool.query('DELETE FROM hr_policies WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch { res.status(500).json({ error: 'Server error' }); }
 });
 
 // ============ FISCAL YEARS ============
@@ -66,51 +67,20 @@ router.put('/company', authMiddleware, async (req: AuthRequest, res: Response) =
 // ============ FINANCIAL REPORTS ============
 // Profit & Loss
 router.get('/reports/profit-loss', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
   try {
-    const revenue = await pool.query("SELECT COALESCE(SUM(amount_paid),0) as total FROM invoices WHERE status IN ('paid','partial')");
-    const expenses = await pool.query("SELECT category, COALESCE(SUM(amount),0) as total FROM expenses WHERE status='approved' GROUP BY category ORDER BY total DESC");
-    const totalExpenses = await pool.query("SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status='approved'");
-    const payrollCosts = await pool.query("SELECT COALESCE(SUM(net_salary),0) as total FROM payroll WHERE status='paid'");
-
-    const totalRev = parseFloat(revenue.rows[0].total);
-    const totalExp = parseFloat(totalExpenses.rows[0].total) + parseFloat(payrollCosts.rows[0].total);
-
-    res.json({
-      revenue: totalRev,
-      expensesByCategory: expenses.rows,
-      operatingExpenses: parseFloat(totalExpenses.rows[0].total),
-      payrollCosts: parseFloat(payrollCosts.rows[0].total),
-      totalExpenses: totalExp,
-      netIncome: totalRev - totalExp,
-    });
+    res.json(profitAndLoss(await loadAccounts(client)));
   } catch (error) { console.error(error); res.status(500).json({ error: 'Server error' }); }
+  finally { client.release(); }
 });
 
 // Balance Sheet
 router.get('/reports/balance-sheet', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
   try {
-    const assets = await pool.query("SELECT type, COALESCE(SUM(balance),0) as total FROM accounts WHERE type='asset' GROUP BY type");
-    const liabilities = await pool.query("SELECT type, COALESCE(SUM(balance),0) as total FROM accounts WHERE type='liability' GROUP BY type");
-    const equity = await pool.query("SELECT type, COALESCE(SUM(balance),0) as total FROM accounts WHERE type='equity' GROUP BY type");
-    const receivables = await pool.query("SELECT COALESCE(SUM(balance_due),0) as total FROM invoices WHERE status IN ('pending','partial','overdue')");
-    const payables = await pool.query("SELECT COALESCE(SUM(amount - COALESCE(amount_paid,0)),0) as total FROM bills WHERE status='pending'");
-    const fixedAssets = await pool.query("SELECT COALESCE(SUM(value),0) as total FROM assets");
-    const bankBalance = await pool.query("SELECT COALESCE(SUM(balance),0) as total FROM bank_accounts");
-
-    res.json({
-      assets: {
-        cash: parseFloat(bankBalance.rows[0].total),
-        accountsReceivable: parseFloat(receivables.rows[0].total),
-        fixedAssets: parseFloat(fixedAssets.rows[0].total),
-        otherAssets: parseFloat(assets.rows[0]?.total || 0),
-      },
-      liabilities: {
-        accountsPayable: parseFloat(payables.rows[0].total),
-        otherLiabilities: parseFloat(liabilities.rows[0]?.total || 0),
-      },
-      equity: parseFloat(equity.rows[0]?.total || 0),
-    });
+    res.json(balanceSheet(await loadAccounts(client)));
   } catch (error) { console.error(error); res.status(500).json({ error: 'Server error' }); }
+  finally { client.release(); }
 });
 
 // Cash Flow Statement
@@ -119,7 +89,7 @@ router.get('/reports/cash-flow', authMiddleware, async (req: AuthRequest, res: R
     const invoicePayments = await pool.query("SELECT COALESCE(SUM(amount),0) as total FROM payments");
     const expensesPaid = await pool.query("SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status='approved'");
     const payrollPaid = await pool.query("SELECT COALESCE(SUM(net_salary),0) as total FROM payroll WHERE status='paid'");
-    const bankBalance = await pool.query("SELECT COALESCE(SUM(balance),0) as total FROM bank_accounts");
+    const bankBalance = await pool.query("SELECT COALESCE(SUM(balance),0) as total FROM banks");
 
     const cashIn = parseFloat(invoicePayments.rows[0].total);
     const cashOutExpenses = parseFloat(expensesPaid.rows[0].total);
@@ -196,18 +166,11 @@ router.get('/reports/ap-aging', authMiddleware, async (req: AuthRequest, res: Re
 
 // Trial Balance
 router.get('/reports/trial-balance', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
   try {
-    const accounts = await pool.query('SELECT code, name, type, balance FROM accounts ORDER BY code');
-    let totalDebits = 0;
-    let totalCredits = 0;
-    const rows = accounts.rows.map((a: any) => {
-      const bal = parseFloat(a.balance || 0);
-      const isDebit = ['asset', 'expense'].includes(a.type);
-      if (isDebit) totalDebits += bal; else totalCredits += bal;
-      return { ...a, debit: isDebit ? bal : 0, credit: isDebit ? 0 : bal };
-    });
-    res.json({ accounts: rows, totalDebits, totalCredits, isBalanced: Math.abs(totalDebits - totalCredits) < 0.01 });
+    res.json(trialBalance(await loadAccounts(client)));
   } catch (error) { console.error(error); res.status(500).json({ error: 'Server error' }); }
+  finally { client.release(); }
 });
 
 // Revenue by Customer

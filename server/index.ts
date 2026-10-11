@@ -28,8 +28,7 @@ import settingsRoutes from './routes/settings';
 import dashboardRoutes from './routes/dashboard';
 import exitManagementRoutes from './routes/exit-management';
 import smsSettingsRoutes from './routes/sms-settings';
-
-import { initializeDatabase } from './initialize';
+import insuranceRoutes from './routes/insurance';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -63,6 +62,7 @@ app.use('/api/settings/sms', smsSettingsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/exit-management', exitManagementRoutes);
+app.use('/api/insurance', insuranceRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -70,15 +70,9 @@ app.get('/api/health', (req, res) => {
 });
 
 async function start() {
-  try {
-    await initializeDatabase();
-    app.listen(PORT, () => {
-      console.log(`🚀 OmniSync API server running on http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.error('Fatal error during startup:', error);
-    process.exit(1);
-  }
+  app.listen(PORT, () => {
+    console.log(`API server running on http://localhost:${PORT}`);
+  });
 }
 
 start();

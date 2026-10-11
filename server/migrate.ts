@@ -1,6 +1,7 @@
 import pool from './db';
 
 async function migrate() {
+  throw new Error('Local migrate is disabled so it cannot reshape the existing Supabase tables. Use the insurance project migrations instead.');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
