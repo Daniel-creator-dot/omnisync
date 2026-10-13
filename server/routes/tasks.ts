@@ -73,12 +73,12 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     const title = req.body.title !== undefined ? String(req.body.title).trim() : current.title;
     const priority = priorities.has(req.body.priority) ? req.body.priority : current.priority;
     if (!title) return res.status(400).json({ error: 'A task title is required' });
+    const doneSql = status === 'done'
+      ? 'COALESCE(completed_at, NOW())'
+      : 'NULL';
     const result = await pool.query(
       `UPDATE desk_tasks
-       SET status = $2,
-           title = $3,
-           priority = $4,
-           completed_at = CASE WHEN $2 = 'done' THEN COALESCE(completed_at, NOW()) ELSE NULL END
+       SET status = $2, title = $3, priority = $4, completed_at = ${doneSql}
        WHERE id = $1
        RETURNING id, title, detail, status, priority, due_date, created_by, created_at, completed_at`,
       [id, status, title, priority]
