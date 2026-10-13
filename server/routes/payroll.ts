@@ -1,6 +1,8 @@
 import { Router, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { JournalError, postJournal } from '../ledger';
+import { bankTable, ensureBooks } from '../schema';
 
 const router = Router();
 
@@ -148,17 +150,97 @@ router.put('/approve-batch', authMiddleware, async (req: AuthRequest, res: Respo
   }
 });
 
-// PUT /api/payroll/pay-batch - pay all payroll records for a period
+const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+async function salaryAccount(client: { query: typeof pool.query }, requestedId?: number) {
+  if (requestedId) {
+    const existing = await client.query('SELECT id, name FROM chart_of_accounts WHERE id = $1', [requestedId]);
+    if (existing.rows.length === 0) throw new JournalError('The salary account does not exist');
+    return existing.rows[0];
+  }
+  const named = await client.query(
+    `SELECT id, name FROM chart_of_accounts
+     WHERE lower(type) = 'expense' AND name ~* 'salary|wage|payroll'
+     ORDER BY code LIMIT 1`
+  );
+  if (named.rows[0]) return named.rows[0];
+  const existingCode = await client.query(`SELECT id, name FROM chart_of_accounts WHERE code = '5510' LIMIT 1`);
+  if (existingCode.rows[0]) return existingCode.rows[0];
+  const created = await client.query(
+    `INSERT INTO chart_of_accounts (code, name, type, balance)
+     VALUES ('5510', 'Salaries and Wages', 'expense', 0)
+     RETURNING id, name`
+  );
+  return created.rows[0];
+}
+
+// PUT /api/payroll/pay-batch - pay approved slips, post the ledger, and reduce the bank balance
 router.put('/pay-batch', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
   try {
-    const { month, year } = req.body;
-    const result = await pool.query(
-      "UPDATE payroll SET status='paid' WHERE month=$1 AND year=$2 AND status='approved' RETURNING *",
+    const { month, year, paidFromAccountId, salaryAccountId, bankAccountId } = req.body;
+    if (!month || !year) return res.status(400).json({ error: 'Month and year are required' });
+    if (!paidFromAccountId) return res.status(400).json({ error: 'Choose the ledger account the wages are paid from' });
+    if (!bankAccountId) return res.status(400).json({ error: 'Choose the bank account to pay from' });
+
+    await ensureBooks();
+    await client.query('BEGIN');
+    const slips = await client.query(
+      `SELECT id, employee_name, net_salary FROM payroll
+       WHERE month = $1 AND year = $2 AND status = 'approved'
+       ORDER BY employee_name
+       FOR UPDATE`,
       [month, year]
     );
-    res.json({ message: `${result.rows.length} records marked as paid`, records: result.rows });
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    if (slips.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'There are no approved payslips left to pay for that period' });
+    }
+    const total = Math.round(slips.rows.reduce((sum, row) => sum + Number(row.net_salary || 0), 0) * 100) / 100;
+    const label = `${monthNames[Number(month) - 1] || month} ${year}`;
+    let journalId: number | null = null;
+    if (total > 0) {
+      const salary = await salaryAccount(client, salaryAccountId ? Number(salaryAccountId) : undefined);
+      const paidFrom = await client.query('SELECT id, name FROM chart_of_accounts WHERE id = $1', [paidFromAccountId]);
+      if (paidFrom.rows.length === 0) throw new JournalError('The paying ledger account does not exist');
+      if (Number(paidFrom.rows[0].id) === Number(salary.id)) throw new JournalError('Pay wages from a cash or bank account');
+      const entry = await postJournal(client, {
+        date: new Date().toISOString().slice(0, 10),
+        description: `Payroll ${label}`,
+        reference: `PAYROLL-${year}-${String(month).padStart(2, '0')}`,
+        lines: [
+          { accountId: salary.id, accountName: salary.name, type: 'debit', amount: total },
+          { accountId: paidFrom.rows[0].id, accountName: paidFrom.rows[0].name, type: 'credit', amount: total },
+        ],
+      });
+      journalId = entry.id;
+      const table = await bankTable();
+      const bank = await client.query(
+        `UPDATE ${table} SET balance = balance - $1 WHERE id = $2 AND balance >= $1 RETURNING id, name, balance`,
+        [total, bankAccountId]
+      );
+      if (bank.rows.length === 0) throw new JournalError('That bank account does not have enough to cover this payroll');
+    }
+    const paid = await client.query(
+      `UPDATE payroll SET status = 'paid' WHERE month = $1 AND year = $2 AND status = 'approved' RETURNING *`,
+      [month, year]
+    );
+    await client.query('COMMIT');
+    res.json({
+      message: total > 0
+        ? `Paid ${paid.rows.length} people for ${label}. ${total.toFixed(2)} left the bank and was posted to the ledger.`
+        : `Marked ${paid.rows.length} zero payslips as paid for ${label}.`,
+      total,
+      journalId,
+      records: paid.rows,
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error(error);
+    const status = error instanceof JournalError ? error.status : 500;
+    res.status(status).json({ error: error instanceof JournalError ? error.message : 'Server error' });
+  } finally {
+    client.release();
   }
 });
 

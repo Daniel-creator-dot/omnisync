@@ -45,6 +45,11 @@ const PayrollModule = () => {
   const [viewingRecord, setViewingRecord] = useState<any | null>(null);
   const { currencySymbol } = useSettings();
   const [processing, setProcessing] = useState(false);
+  const [payTarget, setPayTarget] = useState<{ month: number; year: number } | null>(null);
+  const [payAccounts, setPayAccounts] = useState<any[]>([]);
+  const [payBanks, setPayBanks] = useState<any[]>([]);
+  const [payForm, setPayForm] = useState({ salaryAccountId: 'create-salaries', paidFromAccountId: '', bankAccountId: '' });
+  const [paying, setPaying] = useState(false);
   const [batchForm, setBatchForm] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
@@ -162,16 +167,50 @@ const PayrollModule = () => {
     } catch (error: any) { toast.error(error.message); }
   };
 
-  const payBatch = async (month: number, year: number) => {
-    if (!confirm(`Mark all approved payroll records for ${months[month - 1]} ${year} as paid?`)) return;
+  const openPay = async (month: number, year: number) => {
+    setPayTarget({ month, year });
     try {
-      const result = await api.put('/payroll/pay-batch', { month, year });
-      toast.success(result.message || 'Batch paid');
-      const key = `${month}-${year}`;
+      const [books, banks] = await Promise.all([api.get('/accounts'), api.get('/banking/accounts')]);
+      const accountRows = Array.isArray(books) ? books : [];
+      const bankRows = Array.isArray(banks) ? banks : [];
+      setPayAccounts(accountRows);
+      setPayBanks(bankRows);
+      const salary = accountRows.find((account) => account.type === 'expense' && /salary|wage|payroll/i.test(account.name));
+      const cash = accountRows.find((account) => account.type === 'asset' && /bank|cash/i.test(account.name));
+      const bank = bankRows.find((row) => /absa/i.test(`${row.bank_name} ${row.name}`)) || bankRows[0];
+      setPayForm({
+        salaryAccountId: salary ? String(salary.id) : 'create-salaries',
+        paidFromAccountId: cash ? String(cash.id) : '',
+        bankAccountId: bank ? String(bank.id) : '',
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'The paying accounts could not be loaded');
+    }
+  };
+
+  const payBatch = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!payTarget) return;
+    setPaying(true);
+    try {
+      const result = await api.put('/payroll/pay-batch', {
+        month: payTarget.month,
+        year: payTarget.year,
+        paidFromAccountId: Number(payForm.paidFromAccountId),
+        salaryAccountId: payForm.salaryAccountId === 'create-salaries' ? undefined : Number(payForm.salaryAccountId),
+        bankAccountId: Number(payForm.bankAccountId),
+      });
+      toast.success(result.message || 'Payroll paid');
+      const key = `${payTarget.month}-${payTarget.year}`;
+      setPayTarget(null);
       setPeriodRecords(prev => ({ ...prev, [key]: undefined as any }));
-      fetchPeriodRecords(month, year);
+      fetchPeriodRecords(payTarget.month, payTarget.year);
       fetchPeriods();
-    } catch (error: any) { toast.error(error.message); }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setPaying(false);
+    }
   };
 
   const deletePeriod = async (month: number, year: number) => {
@@ -371,7 +410,7 @@ const PayrollModule = () => {
                             </Button>
                           )}
                           {period.approved_count > 0 && (
-                            <Button variant="ghost" size="sm" onClick={() => payBatch(period.month, period.year)} className="text-emerald-600 hover:text-emerald-800 gap-1" title="Pay approved">
+                            <Button variant="ghost" size="sm" onClick={() => openPay(period.month, period.year)} className="text-emerald-600 hover:text-emerald-800 gap-1" title="Pay approved">
                               <DollarSign className="h-4 w-4" /> <span className="hidden sm:inline">Pay Staff</span>
                             </Button>
                           )}
@@ -549,6 +588,65 @@ const PayrollModule = () => {
                 <Button variant="outline" onClick={() => setViewingRecord(null)}>Close Payslip</Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!payTarget} onOpenChange={() => setPayTarget(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Pay {payTarget ? `${months[payTarget.month - 1]} ${payTarget.year}` : 'payroll'}</DialogTitle>
+          </DialogHeader>
+          {payTarget && (
+            <form onSubmit={payBatch} className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">
+                Approved net for this period is {currencySymbol}
+                {slips
+                  .filter((slip) => Number(slip.month) === payTarget.month && Number(slip.year) === payTarget.year && slip.status === 'approved')
+                  .reduce((sum, slip) => sum + Number(slip.net_salary || 0), 0)
+                  .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                . The wages are posted to the ledger and the same amount leaves the bank account you choose.
+              </p>
+              <div className="space-y-2">
+                <Label>Salary account</Label>
+                <Select value={payForm.salaryAccountId} onValueChange={(value: string) => setPayForm({ ...payForm, salaryAccountId: value })}>
+                  <SelectTrigger><SelectValue placeholder="Salary account" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="create-salaries">5510 Salaries and Wages</SelectItem>
+                    {payAccounts.filter((account) => account.type === 'expense').map((account) => (
+                      <SelectItem key={account.id} value={String(account.id)}>{account.code} {account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Credit this ledger account</Label>
+                <Select value={payForm.paidFromAccountId} onValueChange={(value: string) => setPayForm({ ...payForm, paidFromAccountId: value })}>
+                  <SelectTrigger><SelectValue placeholder="Cash or bank in the ledger" /></SelectTrigger>
+                  <SelectContent>
+                    {payAccounts.filter((account) => account.type === 'asset').map((account) => (
+                      <SelectItem key={account.id} value={String(account.id)}>{account.code} {account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Reduce this bank balance</Label>
+                <Select value={payForm.bankAccountId} onValueChange={(value: string) => setPayForm({ ...payForm, bankAccountId: value })}>
+                  <SelectTrigger><SelectValue placeholder="Bank account" /></SelectTrigger>
+                  <SelectContent>
+                    {payBanks.map((bank) => (
+                      <SelectItem key={bank.id} value={String(bank.id)}>
+                        {bank.name} · {bank.bank_name} · {Number(bank.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" className="w-full bg-indigo-600" disabled={paying || !payForm.paidFromAccountId || !payForm.bankAccountId}>
+                {paying ? 'Paying...' : 'Pay and post'}
+              </Button>
+            </form>
           )}
         </DialogContent>
       </Dialog>
