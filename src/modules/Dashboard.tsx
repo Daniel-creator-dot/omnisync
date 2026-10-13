@@ -1,31 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area 
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  DollarSign, 
-  FileText, 
-  Briefcase,
-  Package,
-  CreditCard
+import {
+  TrendingUp, TrendingDown, Users, FileText, Briefcase, Package, ArrowUpRight, CheckSquare,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { api } from '../lib/api';
+import type { DeskTask } from './Desk/Tasks';
 
-const Dashboard = () => {
+interface DashboardProps {
+  onOpen: (tab: string) => void;
+}
+
+const Dashboard = ({ onOpen }: DashboardProps) => {
   const { profile } = useAuth();
   const { currencySymbol } = useSettings();
   const [stats, setStats] = useState({
@@ -35,48 +24,39 @@ const Dashboard = () => {
     pendingInvoices: 0,
     activePostings: 0,
     totalAssets: 0,
-    departmentDistribution: [] as { name: string; count: number }[],
-    monthlyHistory: [] as { name: string; revenue: number; expenses: number }[]
+    monthlyHistory: [] as { name: string; revenue: number; expenses: number }[],
   });
+  const [tasks, setTasks] = useState<DeskTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    api.get('/dashboard/stats')
-      .then((data) => {
+    Promise.all([
+      api.get('/dashboard/stats'),
+      api.get('/tasks').catch(() => []),
+    ])
+      .then(([data, taskRows]) => {
         setStats(data);
+        setTasks(taskRows);
       })
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
-  const hasHistory = (stats.monthlyHistory?.length ?? 0) > 0;
-  const revenueData = hasHistory
-    ? stats.monthlyHistory 
-    : [
-        { name: 'Jan', revenue: 0, expenses: 0 },
-        { name: 'Feb', revenue: 0, expenses: 0 },
-        { name: 'Mar', revenue: 0, expenses: 0 },
-        { name: 'Apr', revenue: 0, expenses: 0 },
-        { name: 'May', revenue: 0, expenses: 0 },
-        { name: 'Jun', revenue: 0, expenses: 0 },
-      ];
-
-  const hasDepartments = stats.departmentDistribution.length > 0;
-  const deptData = hasDepartments
-    ? stats.departmentDistribution
-    : [{ name: 'None', count: 0 }];
-
   const money = (n: number) => `${currencySymbol}${(n ?? 0).toLocaleString()}`;
   const net = (stats.totalRevenue ?? 0) - (stats.totalExpenses ?? 0);
+  const history = stats.monthlyHistory?.length
+    ? stats.monthlyHistory
+    : [{ name: 'Now', revenue: stats.totalRevenue || 0, expenses: stats.totalExpenses || 0 }];
+  const openTasks = tasks.filter((task) => task.status === 'open').slice(0, 4);
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const cards = [
-    { label: 'Revenue', value: money(stats.totalRevenue), note: 'Paid invoices', icon: DollarSign, tone: 'bg-emerald-50 text-emerald-700' },
-    { label: 'Expenses', value: money(stats.totalExpenses), note: 'Approved spend', icon: CreditCard, tone: 'bg-rose-50 text-rose-700' },
-    { label: 'People', value: String(stats.activeEmployees ?? 0), note: 'Active employees', icon: Users, tone: 'bg-indigo-50 text-indigo-700' },
-    { label: 'Invoices', value: String(stats.pendingInvoices ?? 0), note: 'Waiting on payment', icon: FileText, tone: 'bg-amber-50 text-amber-700' },
-    { label: 'Hiring', value: String(stats.activePostings ?? 0), note: 'Open postings', icon: Briefcase, tone: 'bg-sky-50 text-sky-700' },
-    { label: 'Assets', value: money(stats.totalAssets), note: 'Fixed asset value', icon: Package, tone: 'bg-slate-100 text-slate-700' },
+  const shortcuts = [
+    { id: 'acc-sales', label: 'New invoice', detail: 'Sales' },
+    { id: 'desk-tasks', label: 'Add a task', detail: 'Follow-ups' },
+    { id: 'ins-policies', label: 'Policies', detail: 'Insurance' },
+    { id: 'employees', label: 'People', detail: 'HR' },
   ];
 
   if (loading) {
@@ -89,96 +69,130 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600">Overview</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">Good to see you, {profile?.displayName || 'there'}</h1>
-          <p className="mt-1 text-sm text-slate-500">Revenue, people, and open work in one view.</p>
+      <section className="overflow-hidden rounded-3xl bg-zinc-950 text-white">
+        <div className="grid gap-6 p-6 md:grid-cols-[1.4fr_0.8fr] md:p-8">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-300">Today</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">{greeting}, {profile?.displayName?.split(' ')[0] || 'there'}</h1>
+            <p className="mt-2 max-w-md text-sm text-zinc-400">Money, people, and the follow-ups still sitting on the desk.</p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {shortcuts.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onOpen(item.id)}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-100 hover:bg-white/10"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-2xl bg-white/6 p-5">
+            <p className="text-xs text-zinc-400">Net so far</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight">{money(Math.abs(net))}</p>
+            <p className={`mt-1 text-sm ${net >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+              {net >= 0 ? 'Ahead of expenses' : 'Expenses are ahead'}
+            </p>
+          </div>
         </div>
-        <p className={`text-sm font-medium ${net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-          Net {money(Math.abs(net))} {net < 0 ? 'short' : 'ahead'}
-        </p>
-      </div>
+      </section>
 
       {failed && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           The overview numbers could not be loaded. The rest of the desk is still available.
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        {cards.map((card) => (
-          <Card key={card.label} className="gap-3 bg-white py-4">
-            <CardHeader className="flex flex-row items-center justify-between pb-0">
-              <CardTitle className="text-xs font-medium text-slate-500">{card.label}</CardTitle>
-              <span className={`flex h-7 w-7 items-center justify-center rounded-md ${card.tone}`}>
-                <card.icon className="h-3.5 w-3.5" />
-              </span>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold tracking-tight text-slate-950">{card.value}</div>
-              <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                {card.label === 'Revenue' && <TrendingUp className="h-3 w-3 text-emerald-600" />}
-                {card.label === 'Expenses' && <TrendingDown className="h-3 w-3 text-rose-600" />}
-                {card.note}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Metric label="Revenue" value={money(stats.totalRevenue)} note="Paid invoices" icon={TrendingUp} />
+        <Metric label="Expenses" value={money(stats.totalExpenses)} note="Approved spend" icon={TrendingDown} />
+        <Metric label="Open invoices" value={String(stats.pendingInvoices ?? 0)} note="Waiting on payment" icon={FileText} />
+        <Metric label="People" value={String(stats.activeEmployees ?? 0)} note={`${stats.activePostings ?? 0} open roles`} icon={Users} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <Card className="bg-white p-5 lg:col-span-3">
-          <CardHeader className="px-0 pt-0">
-            <CardTitle className="text-base font-semibold text-slate-950">Revenue and expenses</CardTitle>
-            <p className="text-xs text-slate-500">{hasHistory ? 'Monthly movement' : 'No monthly history yet'}</p>
-          </CardHeader>
-          <div className="mt-2 h-[260px] w-full">
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="rounded-3xl border border-border bg-card p-5 lg:col-span-3">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Revenue and expenses</h2>
+              <p className="text-xs text-muted-foreground">Last six months</p>
+            </div>
+            <button type="button" onClick={() => onOpen('acc-reports')} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-300">
+              Reports <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenueData}>
+              <AreaChart data={history}>
                 <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.16}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                  <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.28} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} width={40} />
-                <Tooltip contentStyle={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: 12 }} />
-                <Area type="monotone" dataKey="revenue" stroke="#4f46e5" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={2} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} width={40} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid var(--border)', fontSize: 12 }} />
+                <Area type="monotone" dataKey="revenue" stroke="#6366f1" fill="url(#revFill)" strokeWidth={2} />
                 <Area type="monotone" dataKey="expenses" stroke="#e11d48" fill="transparent" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </Card>
+        </div>
 
-        <Card className="bg-white p-5 lg:col-span-2">
-          <CardHeader className="px-0 pt-0">
-            <CardTitle className="text-base font-semibold text-slate-950">Departments</CardTitle>
-            <p className="text-xs text-slate-500">{hasDepartments ? 'Headcount by team' : 'No department data yet'}</p>
-          </CardHeader>
-          {hasDepartments ? (
-            <div className="mt-2 h-[260px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={deptData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} width={28} allowDecimals={false} />
-                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: 12 }} />
-                  <Bar dataKey="count" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
+        <div className="rounded-3xl border border-border bg-card p-5 lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Open tasks</h2>
+              <p className="text-xs text-muted-foreground">{openTasks.length === 0 ? 'Nothing waiting' : 'Shared with the desk'}</p>
             </div>
+            <button type="button" onClick={() => onOpen('desk-tasks')} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-300">
+              <CheckSquare className="h-3.5 w-3.5" /> All
+            </button>
+          </div>
+          {openTasks.length === 0 ? (
+            <button type="button" onClick={() => onOpen('desk-tasks')} className="flex h-[220px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
+              Add the first follow-up
+            </button>
           ) : (
-            <div className="mt-6 flex h-[220px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
-              Departments will show here once people are assigned.
-            </div>
+            <ul className="space-y-2">
+              {openTasks.map((task) => (
+                <li key={task.id} className="rounded-2xl bg-muted/60 px-3 py-3">
+                  <p className="truncate text-sm font-medium">{task.title}</p>
+                  <p className="mt-1 text-xs capitalize text-muted-foreground">
+                    {task.priority}{task.due_date ? ` · ${String(task.due_date).slice(0, 10)}` : ''}
+                  </p>
+                </li>
+              ))}
+            </ul>
           )}
-        </Card>
+          <div className="mt-4 flex items-center justify-between rounded-2xl bg-muted/50 px-3 py-3 text-sm">
+            <span className="inline-flex items-center gap-2 text-muted-foreground"><Package className="h-4 w-4" /> Assets</span>
+            <span className="font-medium">{money(stats.totalAssets)}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between rounded-2xl bg-muted/50 px-3 py-3 text-sm">
+            <span className="inline-flex items-center gap-2 text-muted-foreground"><Briefcase className="h-4 w-4" /> Hiring</span>
+            <span className="font-medium">{stats.activePostings ?? 0} open</span>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
+
+function Metric({ label, value, note, icon: Icon }: { label: string; value: string; note: string; icon: React.ComponentType<{ className?: string }> }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card px-4 py-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <Icon className="h-4 w-4 text-indigo-500" />
+      </div>
+      <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{note}</p>
+    </div>
+  );
+}
 
 export default Dashboard;

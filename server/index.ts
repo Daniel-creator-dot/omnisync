@@ -29,6 +29,7 @@ import dashboardRoutes from './routes/dashboard';
 import exitManagementRoutes from './routes/exit-management';
 import smsSettingsRoutes from './routes/sms-settings';
 import insuranceRoutes from './routes/insurance';
+import taskRoutes from './routes/tasks';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -63,6 +64,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/exit-management', exitManagementRoutes);
 app.use('/api/insurance', insuranceRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

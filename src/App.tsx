@@ -17,6 +17,7 @@ import Budgeting from './modules/Accounting/Budgeting';
 import Expenses from './modules/Accounting/Expenses';
 import AccountingSettings from './modules/Accounting/AccountingSettings';
 import InsuranceDesk from './modules/Insurance/InsuranceDesk';
+import Tasks from './modules/Desk/Tasks';
 import TaxManagement from './modules/Accounting/TaxManagement';
 import FinancialReports from './modules/Accounting/FinancialReports';
 import HRReports from './modules/HR/HRReports';
@@ -56,7 +57,8 @@ function AppContent() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard onOpen={setActiveTab} />;
+      case 'desk-tasks': return <Tasks />;
       case 'acc-transactions': return <Transactions />;
       case 'acc-sales': return <Sales />;
       case 'acc-purchases': return <Purchases />;
@@ -91,7 +93,7 @@ function AppContent() {
       case 'ins-commissions':
       case 'ins-cashbook':
         return <InsuranceDesk section={activeTab} />;
-      default: return <Dashboard />;
+      default: return <Dashboard onOpen={setActiveTab} />;
     }
   };
 

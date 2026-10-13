@@ -29,8 +29,8 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#eef1f7] lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
-      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-slate-950 text-white px-12 py-10">
+    <div className="min-h-screen w-full bg-zinc-100 lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)] dark:bg-zinc-950">
+      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-zinc-950 text-white px-12 py-10">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.35),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(15,23,42,0.2),transparent_40%)]" />
         <div className="relative flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500">
@@ -62,11 +62,11 @@ const LoginPage = () => {
             </div>
             <span className="text-lg font-semibold tracking-tight text-slate-900">Bytz360</span>
           </div>
-          <div className="rounded-2xl bg-white px-6 py-7 shadow-[0_1px_2px_rgba(15,23,42,0.05),0_16px_40px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/80 sm:px-8">
+          <div className="rounded-3xl bg-white px-6 py-7 shadow-[0_20px_60px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/80 sm:px-8 dark:bg-zinc-900 dark:ring-white/10">
             <AnimatePresence mode="wait">
               {!isForgotMode ? (
                 <motion.div key="login" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }}>
-                  <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Sign in</h2>
+                  <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Sign in</h2>
                   <p className="mt-1 text-sm text-slate-500">Use your work email to open the desk.</p>
 
                   {error && (
