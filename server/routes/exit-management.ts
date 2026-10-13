@@ -7,6 +7,12 @@ const router = Router();
 // GET all exit records
 router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    if (req.user?.role === 'employee') {
+      const emp = await pool.query('SELECT id FROM employees WHERE email = $1', [req.user.email]);
+      if (emp.rows.length === 0) return res.json([]);
+      const own = await pool.query('SELECT * FROM exit_management WHERE employee_id = $1 ORDER BY created_at DESC', [emp.rows[0].id]);
+      return res.json(own.rows);
+    }
     const result = await pool.query('SELECT * FROM exit_management ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (error) { console.error(error); res.status(500).json({ error: 'Server error' }); }

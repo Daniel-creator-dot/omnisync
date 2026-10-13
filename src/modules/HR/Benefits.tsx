@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
+import { useSettings } from '../../contexts/SettingsContext';
 
 const Benefits = () => {
+  const { currencySymbol } = useSettings();
   const [benefits, setBenefits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -46,7 +48,7 @@ const Benefits = () => {
             <form onSubmit={handleAdd} className="space-y-4 pt-4">
               <div className="space-y-2"><Label>Name</Label><Input value={newBenefit.name} onChange={e => setNewBenefit({...newBenefit, name: e.target.value})} required /></div>
               <div className="space-y-2"><Label>Description</Label><Input value={newBenefit.description} onChange={e => setNewBenefit({...newBenefit, description: e.target.value})} /></div>
-              <div className="space-y-2"><Label>Monthly Cost ($)</Label><Input type="number" value={newBenefit.cost} onChange={e => setNewBenefit({...newBenefit, cost: Number(e.target.value)})} /></div>
+              <div className="space-y-2"><Label>Monthly cost ({currencySymbol})</Label><Input type="number" value={newBenefit.cost} onChange={e => setNewBenefit({...newBenefit, cost: Number(e.target.value)})} /></div>
               <Button type="submit" className="w-full bg-indigo-600">Add Benefit</Button>
             </form>
           </DialogContent>
@@ -62,7 +64,7 @@ const Benefits = () => {
               {loading ? (<TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-500">Loading...</TableCell></TableRow>
               ) : benefits.length === 0 ? (<TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-500">No benefits.</TableCell></TableRow>
               ) : (benefits.map((b: any) => (
-                <TableRow key={b.id}><TableCell className="font-medium">{b.name}</TableCell><TableCell className="max-w-xs truncate">{b.description}</TableCell><TableCell>${parseFloat(b.cost).toLocaleString()}</TableCell>
+                <TableRow key={b.id}><TableCell className="font-medium">{b.name}</TableCell><TableCell className="max-w-xs truncate">{b.description}</TableCell><TableCell>{currencySymbol}{parseFloat(b.cost || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => deleteBenefit(b.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></Button></TableCell>
                 </TableRow>
               )))}

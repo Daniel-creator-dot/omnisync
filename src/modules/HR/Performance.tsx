@@ -41,7 +41,7 @@ const Performance = () => {
     catch (error: any) { toast.error(error.message); }
   };
 
-  const getEmployeeName = (id: number) => employees.find(e => e.id === id)?.name || 'Unknown';
+  const getEmployeeName = (id: number) => employees.find(e => Number(e.id) === Number(id))?.name || 'Unknown';
 
   return (
     <div className="space-y-6">

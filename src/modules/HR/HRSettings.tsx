@@ -30,13 +30,16 @@ const HRSettings = () => {
 
   const fetchData = async () => {
     try {
-      const [ps, d, p, fy, sms] = await Promise.all([
+      const [ps, d, p, fy, sms] = await Promise.allSettled([
         api.get('/settings/payroll-settings'), api.get('/settings/departments'),
         api.get('/settings/policies'), api.get('/settings/fiscal-years'),
         api.get('/settings/sms')
       ]);
-      setPayrollSettings(ps); setDepartments(d); setPolicies(p); setFiscalYears(fy);
-      setSmsConfig(sms || { provider: '', base_url: '', sender_id: '', api_key: '', api_secret: '', is_active: true });
+      setPayrollSettings(ps.status === 'fulfilled' && Array.isArray(ps.value) ? ps.value : []);
+      setDepartments(d.status === 'fulfilled' && Array.isArray(d.value) ? d.value : []);
+      setPolicies(p.status === 'fulfilled' && Array.isArray(p.value) ? p.value : []);
+      setFiscalYears(fy.status === 'fulfilled' && Array.isArray(fy.value) ? fy.value : []);
+      setSmsConfig(sms.status === 'fulfilled' && sms.value ? sms.value : { provider: '', base_url: '', sender_id: '', api_key: '', api_secret: '', is_active: true });
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };
@@ -90,7 +93,7 @@ const HRSettings = () => {
             </CardHeader>
             <CardContent>
               <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Value</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                <TableBody>{loading ? <TableRow><TableCell colSpan={4} className="text-center py-10">Loading...</TableCell></TableRow> : payrollSettings.map((s: any) => (
+                <TableBody>{loading ? <TableRow><TableCell colSpan={4} className="text-center py-10">Loading...</TableCell></TableRow> : payrollSettings.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-500">No payroll settings are on file.</TableCell></TableRow> : payrollSettings.map((s: any) => (
                   <TableRow key={s.id}><TableCell>{s.name}</TableCell><TableCell>{s.value}</TableCell><TableCell>{s.description}</TableCell>
                     <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => deleteItem('payroll-settings', s.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>
                 ))}</TableBody>
@@ -114,7 +117,7 @@ const HRSettings = () => {
             </CardHeader>
             <CardContent>
               <Table><TableHeader><TableRow><TableHead>Department</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                <TableBody>{departments.map((d: any) => (
+                <TableBody>{departments.length === 0 ? <TableRow><TableCell colSpan={2} className="text-center py-10 text-slate-500">No departments are saved here. Staff still keep the department on their own record.</TableCell></TableRow> : departments.map((d: any) => (
                   <TableRow key={d.id}><TableCell>{d.name}</TableCell>
                     <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => deleteItem('departments', d.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>
                 ))}</TableBody>
@@ -140,7 +143,7 @@ const HRSettings = () => {
             </CardHeader>
             <CardContent>
               <Table><TableHeader><TableRow><TableHead>Title</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                <TableBody>{policies.map((p: any) => (
+                <TableBody>{policies.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-10 text-slate-500">No policies are on file.</TableCell></TableRow> : policies.map((p: any) => (
                   <TableRow key={p.id}><TableCell>{p.title}</TableCell><TableCell>{p.category}</TableCell>
                     <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => deleteItem('policies', p.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>
                 ))}</TableBody>
@@ -177,7 +180,7 @@ const HRSettings = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {fiscalYears.map((fy: any) => (
+                  {fiscalYears.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-500">No fiscal years are on file.</TableCell></TableRow> : fiscalYears.map((fy: any) => (
                     <TableRow key={fy.id}>
                       <TableCell>{fy.name}</TableCell>
                       <TableCell>{new Date(fy.start_date).toLocaleDateString()}</TableCell>

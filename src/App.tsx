@@ -84,7 +84,7 @@ function AppContent() {
       case 'organogram': return <Organogram />;
       case 'exit-management': return <ExitManagement />;
       case 'ess': return <SelfService />;
-      case 'hr-reports': return <HRReports />;
+      case 'hr-reports': return <HRReports onOpen={setActiveTab} />;
       case 'hr-settings': return <HRSettings />;
       case 'ins-clients':
       case 'ins-policies':

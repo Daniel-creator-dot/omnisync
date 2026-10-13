@@ -22,13 +22,21 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { date, hours, status } = req.body;
-    const emp = await pool.query('SELECT id FROM employees WHERE email = $1', [req.user?.email]);
-    if (emp.rows.length === 0) return res.status(404).json({ error: 'Employee record not found' });
+    const { date, hours, status, employeeId } = req.body;
+    const role = req.user?.role;
+    const canAssign = role === 'admin' || role === 'hr' || role === 'SUPER_ADMIN';
+    let employeeRow;
+    if (canAssign && employeeId) {
+      employeeRow = await pool.query('SELECT id FROM employees WHERE id = $1', [employeeId]);
+      if (employeeRow.rows.length === 0) return res.status(404).json({ error: 'Employee not found' });
+    } else {
+      employeeRow = await pool.query('SELECT id FROM employees WHERE email = $1', [req.user?.email]);
+      if (employeeRow.rows.length === 0) return res.status(404).json({ error: 'Employee record not found for this login' });
+    }
 
     const result = await pool.query(
       'INSERT INTO timesheets (employee_id, date, hours, status) VALUES ($1,$2,$3,$4) RETURNING *',
-      [emp.rows[0].id, date, hours, status || 'submitted']
+      [employeeRow.rows[0].id, date, hours, status || 'submitted']
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {

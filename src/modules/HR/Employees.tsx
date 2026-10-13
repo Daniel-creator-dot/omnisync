@@ -135,7 +135,7 @@ const Employees = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="salary">Annual Salary ({currencySymbol})</Label>
+                <Label htmlFor="salary">Monthly salary ({currencySymbol})</Label>
                 <Input id="salary" type="number" value={newEmployee.salary} onChange={e => setNewEmployee({...newEmployee, salary: Number(e.target.value)})} required />
               </div>
               <div className="space-y-2">
@@ -309,7 +309,7 @@ const Employees = () => {
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 bg-slate-100 p-1.5 rounded-lg"><DollarSign className="h-4 w-4 text-slate-500" /></div>
-                    <div><p className="text-xs text-slate-500 uppercase font-semibold">Annual Salary</p><p className="text-sm font-medium">{currencySymbol}{viewingEmployee.salary.toLocaleString()}</p></div>
+                    <div><p className="text-xs text-slate-500 uppercase font-semibold">Monthly salary</p><p className="text-sm font-medium">{currencySymbol}{viewingEmployee.salary.toLocaleString()}</p></div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 bg-slate-100 p-1.5 rounded-lg"><Trash2 className="h-4 w-4 text-rose-500" /></div>

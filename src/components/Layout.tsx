@@ -65,8 +65,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <header className="fixed top-0 right-0 left-0 z-30 flex h-14 items-center justify-between border-b border-white/10 bg-zinc-950 px-4 text-white lg:hidden">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground print:block print:h-auto print:overflow-visible">
+      <header className="fixed top-0 right-0 left-0 z-30 flex h-14 items-center justify-between border-b border-white/10 bg-zinc-950 px-4 text-white print:hidden lg:hidden">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500">
             <Landmark className="h-3.5 w-3.5" />
@@ -89,7 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       <motion.aside
         initial={false}
         animate={{ width: isSidebarOpen ? 256 : 76 }}
-        className="hidden shrink-0 flex-col bg-zinc-950 text-white lg:flex"
+        className="hidden shrink-0 flex-col bg-zinc-950 text-white print:hidden lg:flex"
       >
         <div className="flex h-16 items-center justify-between px-3">
           {isSidebarOpen && (
@@ -138,13 +138,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         </div>
       </motion.aside>
 
-      {isMobileMenuOpen && <div className="fixed inset-0 z-40 bg-slate-950/50 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+      {isMobileMenuOpen && <div className="fixed inset-0 z-40 bg-slate-950/50 print:hidden lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
 
       <motion.aside
         initial={{ x: -320 }}
         animate={{ x: isMobileMenuOpen ? 0 : -320 }}
         transition={{ type: 'tween', duration: 0.2 }}
-        className="fixed top-0 bottom-0 left-0 z-50 flex w-[280px] flex-col bg-zinc-950 text-white shadow-2xl lg:hidden"
+        className="fixed top-0 bottom-0 left-0 z-50 flex w-[280px] flex-col bg-zinc-950 text-white shadow-2xl print:hidden lg:hidden"
       >
         <div className="flex h-14 items-center justify-between px-4">
           <span className="font-semibold tracking-tight">Bytz360</span>
@@ -172,7 +172,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       </motion.aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="hidden h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/80 px-6 backdrop-blur lg:flex">
+        <div className="hidden h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/80 px-6 backdrop-blur print:hidden lg:flex">
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
@@ -194,7 +194,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             </Button>
           </div>
         </div>
-        <main className="custom-scrollbar flex-1 overflow-y-auto px-4 pt-[4.75rem] pb-10 md:px-6 lg:px-8 lg:pt-8">
+        <main className="custom-scrollbar flex-1 overflow-y-auto px-4 pt-[4.75rem] pb-10 md:px-6 lg:px-8 lg:pt-8 print:overflow-visible print:p-0">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </div>

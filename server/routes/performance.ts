@@ -6,6 +6,12 @@ const router = Router();
 
 router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    if (req.user?.role === 'employee') {
+      const emp = await pool.query('SELECT id FROM employees WHERE email = $1', [req.user.email]);
+      if (emp.rows.length === 0) return res.json([]);
+      const own = await pool.query('SELECT * FROM performance_reviews WHERE employee_id = $1 ORDER BY date DESC', [emp.rows[0].id]);
+      return res.json(own.rows);
+    }
     const result = await pool.query('SELECT * FROM performance_reviews ORDER BY date DESC');
     res.json(result.rows);
   } catch (error) {

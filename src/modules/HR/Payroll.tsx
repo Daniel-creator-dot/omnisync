@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 
 function MissingPayslips({ periods, slips, staff, months }: { periods: any[]; slips: any[]; staff: any[]; months: string[] }) {
   const latest = periods[0];
+  if (!latest) return null;
   const covered = new Set(
     slips
       .filter((slip) => Number(slip.month) === Number(latest.month) && Number(slip.year) === Number(latest.year))

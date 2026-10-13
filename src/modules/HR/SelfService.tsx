@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { 
-  User, FileText, ShieldCheck, Mail, Briefcase, 
+  User, Mail, Briefcase, 
   Calendar, Clock, CreditCard, Plus, HelpCircle,
   CheckCircle2, AlertCircle, Timer, Printer, Eye, Target, LogOut
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { api } from '../../lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -17,7 +18,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { toast } from 'sonner';
 
-const PayslipDocument = ({ pay, user }: { pay: any, user: any }) => {
+const PayslipDocument = ({ pay, user, currencySymbol }: { pay: any, user: any, currencySymbol: string }) => {
   if (!pay || !user) return null;
   
   const monthName = new Date(pay.year, pay.month - 1).toLocaleString('default', { month: 'long' });
@@ -59,11 +60,11 @@ const PayslipDocument = ({ pay, user }: { pay: any, user: any }) => {
             <div className="p-4 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-600">Base Salary</span>
-                <span className="font-medium text-slate-900">${parseFloat(pay.base_salary).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium text-slate-900">{currencySymbol}{parseFloat(pay.base_salary).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-600">Bonuses / Allowances</span>
-                <span className="font-medium text-emerald-600">+${parseFloat(pay.bonuses).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium text-emerald-600">+{currencySymbol}{parseFloat(pay.bonuses).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
@@ -72,7 +73,7 @@ const PayslipDocument = ({ pay, user }: { pay: any, user: any }) => {
             <div className="p-4 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-600">Tax / Standard Deductions</span>
-                <span className="font-medium text-rose-600">-${parseFloat(pay.deductions).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium text-rose-600">-{currencySymbol}{parseFloat(pay.deductions).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
@@ -80,7 +81,7 @@ const PayslipDocument = ({ pay, user }: { pay: any, user: any }) => {
         
         <div className="bg-slate-900 text-white p-5 flex justify-between items-center">
           <span className="font-bold text-lg uppercase tracking-wider text-slate-300">Net Pay Transfer</span>
-          <span className="font-bold text-2xl tracking-tight text-white">${parseFloat(pay.net_salary).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+          <span className="font-bold text-2xl tracking-tight text-white">{currencySymbol}{parseFloat(pay.net_salary).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
         </div>
       </div>
       
@@ -94,7 +95,10 @@ const PayslipDocument = ({ pay, user }: { pay: any, user: any }) => {
 
 const SelfService = () => {
   const { profile } = useAuth();
+  const { currencySymbol } = useSettings();
   const [userData, setUserData] = useState<any>(null);
+  const [linkedEmployee, setLinkedEmployee] = useState<any>(null);
+  const [policies, setPolicies] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [payrollHistory, setPayrollHistory] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
@@ -114,24 +118,33 @@ const SelfService = () => {
   // Payslip Print State
   const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
+  const [resignOpen, setResignOpen] = useState(false);
+  const [resignForm, setResignForm] = useState({ lastWorkingDay: '', reason: '' });
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [me, leave, payroll, timesheets, perf, exit] = await Promise.all([
+      const [me, leave, payroll, timesheets, perf, exit, people, policyRows] = await Promise.all([
         api.get('/auth/me'),
         api.get('/leave-requests').catch(() => []),
         api.get('/payroll').catch(() => []),
         api.get('/timesheets').catch(() => []),
         api.get('/performance-reviews').catch(() => []),
-        api.get('/exit-management').catch(() => [])
+        api.get('/exit-management').catch(() => []),
+        api.get('/employees').catch(() => []),
+        api.get('/settings/policies').catch(() => []),
       ]);
+      const mine = (people || []).find((person: any) => String(person.email || '').toLowerCase() === String(me.email || '').toLowerCase()) || null;
+      const mineId = mine ? Number(mine.id) : null;
+      const own = (rows: any[]) => mineId == null ? [] : rows.filter((row) => Number(row.employee_id) === mineId);
       setUserData(me);
-      setLeaveRequests(leave);
-      setPayrollHistory(payroll);
-      setAttendance(timesheets);
-      setPerformance(perf);
-      setExitRequests(exit);
+      setLinkedEmployee(mine);
+      setPolicies(policyRows || []);
+      setLeaveRequests(own(leave || []));
+      setPayrollHistory(own(payroll || []));
+      setAttendance(own(timesheets || []));
+      setPerformance(own(perf || []));
+      setExitRequests(own(exit || []));
     } catch (error) {
       console.error('Failed to fetch self-service data:', error);
     } finally {
@@ -161,7 +174,35 @@ const SelfService = () => {
     setIsPayslipModalOpen(true);
   };
 
+  const handleResign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkedEmployee) {
+      toast.error('This login is not linked to a staff record');
+      return;
+    }
+    try {
+      await api.post('/exit-management', {
+        employeeId: linkedEmployee.id,
+        employeeName: linkedEmployee.name,
+        department: linkedEmployee.department,
+        position: linkedEmployee.position,
+        exitType: 'resignation',
+        exitDate: new Date().toISOString().split('T')[0],
+        lastWorkingDay: resignForm.lastWorkingDay,
+        noticePeriod: 30,
+        reason: resignForm.reason,
+      });
+      toast.success('Resignation filed');
+      setResignOpen(false);
+      setResignForm({ lastWorkingDay: '', reason: '' });
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || 'Could not file the resignation');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
+    if (!status) return <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">unknown</span>;
     switch (status.toLowerCase()) {
       case 'approved':
       case 'paid':
@@ -195,7 +236,7 @@ const SelfService = () => {
         It acts as the root print element.
       */}
       <div className="hidden print:block absolute inset-0 bg-white z-[99999] p-10 min-h-screen">
-        {selectedPayslip && <PayslipDocument pay={selectedPayslip} user={displayUser} />}
+        {selectedPayslip && <PayslipDocument pay={selectedPayslip} user={displayUser} currencySymbol={currencySymbol} />}
       </div>
 
       {/* NORMAL SYSTEM UI (HIDDEN DURING PRINT) */}
@@ -233,7 +274,7 @@ const SelfService = () => {
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Department</p>
-                    <p className="text-indigo-600 font-semibold flex items-center gap-2"><Briefcase className="h-4 w-4" />{displayUser?.department || 'General'}</p>
+                    <p className="text-indigo-600 font-semibold flex items-center gap-2"><Briefcase className="h-4 w-4" />{linkedEmployee?.department || displayUser?.department || 'Not on a staff record'}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Role</p>
@@ -248,10 +289,11 @@ const SelfService = () => {
                     <CardTitle className="flex items-center gap-2"><HelpCircle className="h-5 w-5" /> Help & Support</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-indigo-100 mb-4 text-sm leading-relaxed">
-                      Have questions about your benefits or need to update your info? Our HR team is here to help.
+                    <p className="text-indigo-100 text-sm leading-relaxed">
+                      {linkedEmployee
+                        ? `Signed in as ${linkedEmployee.name}. Leave, payslips, and timesheets below are only this staff record.`
+                        : 'This login is not linked to a staff record, so personal leave and payslips stay empty.'}
                     </p>
-                    <Button className="w-full bg-white text-indigo-600 hover:bg-indigo-50 font-bold">Contact Support</Button>
                   </CardContent>
                 </Card>
                 
@@ -260,8 +302,15 @@ const SelfService = () => {
                     <CardTitle className="text-lg">Policy Documents</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <Button variant="ghost" className="w-full justify-start gap-3 h-10"><FileText className="h-4 w-4 text-slate-400" /> Employee Handbook</Button>
-                    <Button variant="ghost" className="w-full justify-start gap-3 h-10"><ShieldCheck className="h-4 w-4 text-slate-400" /> Benefits Overview</Button>
+                    {policies.length === 0 ? (
+                      <p className="text-sm text-slate-500">No policy documents are on file.</p>
+                    ) : policies.map((policy) => (
+                      <div key={policy.id} className="rounded-lg border px-3 py-2">
+                        <p className="text-sm font-medium">{policy.title}</p>
+                        <p className="text-xs text-slate-500">{policy.category || 'Policy'}</p>
+                        {policy.content && <p className="mt-1 text-sm text-slate-600">{policy.content}</p>}
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
               </div>
@@ -366,16 +415,16 @@ const SelfService = () => {
                   </TableHeader>
                   <TableBody>
                     {payrollHistory.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center py-10 text-slate-500">No payment history found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={6} className="text-center py-10 text-slate-500">{linkedEmployee ? 'No payslips are on file for this staff record.' : 'This login is not linked to a staff record.'}</TableCell></TableRow>
                     ) : (
                       payrollHistory.map((pay) => (
                         <TableRow key={pay.id}>
                           <TableCell className="font-semibold">{pay.month}/{pay.year}</TableCell>
-                          <TableCell>${parseFloat(pay.base_salary).toLocaleString()}</TableCell>
+                          <TableCell>{currencySymbol}{parseFloat(pay.base_salary).toLocaleString()}</TableCell>
                           <TableCell className="text-emerald-600">
-                            +${(parseFloat(pay.bonuses) - parseFloat(pay.deductions)).toLocaleString()}
+                            {currencySymbol}{(parseFloat(pay.bonuses) - parseFloat(pay.deductions)).toLocaleString()}
                           </TableCell>
-                          <TableCell className="font-bold font-mono">${parseFloat(pay.net_salary).toLocaleString()}</TableCell>
+                          <TableCell className="font-bold font-mono">{currencySymbol}{parseFloat(pay.net_salary).toLocaleString()}</TableCell>
                           <TableCell>{getStatusBadge(pay.status)}</TableCell>
                           <TableCell className="text-right">
                             <Button variant="outline" size="sm" onClick={() => openPayslip(pay)} className="gap-2">
@@ -395,7 +444,7 @@ const SelfService = () => {
             <Card className="shadow-sm border-slate-200">
               <CardHeader>
                 <CardTitle className="text-xl">Recent Attendance</CardTitle>
-                <CardDescription>Daily clock-in and clock-out logs.</CardDescription>
+                <CardDescription>Timesheet hours on file for this staff record.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -446,8 +495,8 @@ const SelfService = () => {
                     ) : (
                       performance.map((review) => (
                         <TableRow key={review.id}>
-                          <TableCell className="font-medium">{new Date(review.review_date).toLocaleDateString()}</TableCell>
-                          <TableCell>{review.reviewer_name}</TableCell>
+                          <TableCell className="font-medium">{review.date ? new Date(review.date).toLocaleDateString() : '—'}</TableCell>
+                          <TableCell>{review.reviewer_name || '—'}</TableCell>
                           <TableCell><strong className="text-indigo-600">{review.rating}</strong> / 5</TableCell>
                           <TableCell className="truncate max-w-[200px]">{review.comments || review.feedback}</TableCell>
                         </TableRow>
@@ -473,7 +522,28 @@ const SelfService = () => {
                     <p className="text-slate-500 max-w-sm mx-auto mb-6">
                       If you've made the decision to resign, you can initiate the process here. We'll assist you with a smooth transition.
                     </p>
-                    <Button variant="destructive">Initiate Resignation</Button>
+                    {linkedEmployee ? (
+                      <Dialog open={resignOpen} onOpenChange={setResignOpen}>
+                        <DialogTrigger render={<Button variant="destructive">File resignation</Button>} />
+                        <DialogContent>
+                          <DialogHeader><DialogTitle>File resignation</DialogTitle></DialogHeader>
+                          <form onSubmit={handleResign} className="space-y-4 pt-4">
+                            <p className="text-sm text-slate-500">This files an exit record for {linkedEmployee.name}. It does not change the employee status.</p>
+                            <div className="space-y-2">
+                              <Label>Last working day</Label>
+                              <Input type="date" value={resignForm.lastWorkingDay} onChange={(event) => setResignForm({ ...resignForm, lastWorkingDay: event.target.value })} required />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Reason</Label>
+                              <Textarea value={resignForm.reason} onChange={(event) => setResignForm({ ...resignForm, reason: event.target.value })} required />
+                            </div>
+                            <Button type="submit" variant="destructive" className="w-full">File resignation</Button>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
+                    ) : (
+                      <p className="text-sm text-slate-500">This login is not linked to a staff record, so a resignation cannot be filed from here.</p>
+                    )}
                   </div>
                 ) : (
                   <Table>
@@ -488,8 +558,8 @@ const SelfService = () => {
                     <TableBody>
                       {exitRequests.map((exit) => (
                         <TableRow key={exit.id}>
-                          <TableCell className="font-medium capitalize">{exit.type}</TableCell>
-                          <TableCell>{new Date(exit.last_working_day || exit.date).toLocaleDateString()}</TableCell>
+                          <TableCell className="font-medium capitalize">{exit.exit_type || exit.type || '—'}</TableCell>
+                          <TableCell>{exit.last_working_day ? new Date(exit.last_working_day).toLocaleDateString() : '—'}</TableCell>
                           <TableCell className="truncate max-w-[200px]">{exit.reason}</TableCell>
                           <TableCell className="text-right">{getStatusBadge(exit.status)}</TableCell>
                         </TableRow>
@@ -512,7 +582,7 @@ const SelfService = () => {
               </Button>
             </DialogHeader>
             <div className="p-8 max-h-[80vh] overflow-y-auto custom-scrollbar bg-white">
-              <PayslipDocument pay={selectedPayslip} user={displayUser} />
+              <PayslipDocument pay={selectedPayslip} user={displayUser} currencySymbol={currencySymbol} />
             </div>
           </DialogContent>
         </Dialog>

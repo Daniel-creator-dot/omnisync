@@ -18,7 +18,7 @@ const OrgNode = ({ employee, subordinates, allEmployees, level, onAssignManager 
   level: number; onAssignManager: (empId: number, managerId: number | null) => void;
 }) => {
   const [expanded, setExpanded] = useState(level < 2);
-  const directReports = subordinates.filter(e => e.manager_id === employee.id);
+  const directReports = subordinates.filter(e => e.manager_id != null && Number(e.manager_id) === Number(employee.id));
   const colors = ['bg-indigo-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500'];
   const color = colors[level % colors.length];
 
@@ -100,7 +100,7 @@ const Organogram = () => {
   };
 
   const activeEmployees = employees.filter(e => e.status === 'active');
-  const topLevel = activeEmployees.filter(e => !e.manager_id);
+  const topLevel = activeEmployees.filter(e => e.manager_id == null);
   const departments = [...new Set(activeEmployees.map(e => e.department).filter(Boolean))];
   const deptCounts = departments.map(d => ({ name: d, count: activeEmployees.filter(e => e.department === d).length }));
 
@@ -158,7 +158,7 @@ const Organogram = () => {
                 <thead><tr className="border-b"><th className="py-2 text-left font-medium text-slate-500">Employee</th><th className="py-2 text-left font-medium text-slate-500">Position</th><th className="py-2 text-left font-medium text-slate-500">Reports To</th></tr></thead>
                 <tbody>
                   {activeEmployees.map(e => {
-                    const manager = activeEmployees.find(m => m.id === e.manager_id);
+                    const manager = activeEmployees.find(m => e.manager_id != null && Number(m.id) === Number(e.manager_id));
                     return (<tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50"><td className="py-2 font-medium">{e.name}</td><td className="py-2 text-slate-500">{e.position}</td><td className="py-2">{manager ? <Badge variant="outline">{manager.name}</Badge> : <span className="text-slate-400">—</span>}</td></tr>);
                   })}
                 </tbody>

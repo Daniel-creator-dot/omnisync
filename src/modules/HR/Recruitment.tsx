@@ -55,7 +55,7 @@ const Recruitment = () => {
               <div className="space-y-2"><Label>Department</Label>
                 <Select onValueChange={(v: string) => setNewPosting({...newPosting, department: v})} required>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent><SelectItem value="Engineering">Engineering</SelectItem><SelectItem value="Sales">Sales</SelectItem><SelectItem value="HR">HR</SelectItem><SelectItem value="Finance">Finance</SelectItem><SelectItem value="Marketing">Marketing</SelectItem></SelectContent>
+                  <SelectContent><SelectItem value="Operations">Operations</SelectItem><SelectItem value="Sales">Sales</SelectItem><SelectItem value="Finance">Finance</SelectItem><SelectItem value="HR">HR</SelectItem><SelectItem value="Engineering">Engineering</SelectItem><SelectItem value="Marketing">Marketing</SelectItem></SelectContent>
                 </Select>
               </div>
               <div className="space-y-2"><Label>Description</Label><Input value={newPosting.description} onChange={e => setNewPosting({...newPosting, description: e.target.value})} /></div>
