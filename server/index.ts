@@ -68,7 +68,7 @@ app.use('/api/tasks', taskRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', revision: 'desk-2', timestamp: new Date().toISOString() });
 });
 
 async function start() {

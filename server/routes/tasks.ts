@@ -66,18 +66,22 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     await ensureTasksTable();
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid task' });
+    const existing = await pool.query('SELECT title, priority FROM desk_tasks WHERE id = $1', [id]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
+    const current = existing.rows[0];
     const status = req.body.status === 'done' ? 'done' : 'open';
-    const title = req.body.title !== undefined ? String(req.body.title).trim() : null;
-    const priority = priorities.has(req.body.priority) ? req.body.priority : null;
+    const title = req.body.title !== undefined ? String(req.body.title).trim() : current.title;
+    const priority = priorities.has(req.body.priority) ? req.body.priority : current.priority;
+    if (!title) return res.status(400).json({ error: 'A task title is required' });
     const result = await pool.query(
       `UPDATE desk_tasks
        SET status = $2,
-           title = COALESCE($3::varchar, title),
-           priority = COALESCE($4::varchar, priority),
+           title = $3,
+           priority = $4,
            completed_at = CASE WHEN $2 = 'done' THEN COALESCE(completed_at, NOW()) ELSE NULL END
        WHERE id = $1
        RETURNING id, title, detail, status, priority, due_date, created_by, created_at, completed_at`,
-      [id, status, title || null, priority]
+      [id, status, title, priority]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
     res.json(result.rows[0]);
