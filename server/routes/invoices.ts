@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { postJournal } from '../ledger';
+import { controlAccounts, ensureBooks } from '../schema';
 
 const router = Router();
 
@@ -93,23 +94,42 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
 
 // POST /api/invoices
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
   try {
     const { invoiceNumber, customerId, clientName, items, subtotal, taxRate, taxAmount, discount, amount, notes, terms, dueDate, issueDate } = req.body;
     const balanceDue = amount;
-
-    const result = await pool.query(
+    const total = Number(amount || 0);
+    await ensureBooks();
+    await client.query('BEGIN');
+    const result = await client.query(
       `INSERT INTO invoices (invoice_number, customer_id, client_name, items, subtotal, tax_rate, tax_amount, discount, amount, balance_due, amount_paid, notes, terms, due_date, issue_date, status) 
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11,$12,$13,$14,'pending') RETURNING *`,
       [invoiceNumber, customerId || null, clientName, JSON.stringify(items || []), subtotal || 0, taxRate || 0, taxAmount || 0, discount || 0, amount, balanceDue, notes || '', terms || '', dueDate, issueDate || new Date().toISOString().split('T')[0]]
     );
 
-    // Increment invoice number
-    await pool.query('UPDATE company_settings SET invoice_next_number = invoice_next_number + 1 WHERE id=1');
-
+    await client.query('UPDATE company_settings SET invoice_next_number = invoice_next_number + 1 WHERE id=1');
+    if (total > 0) {
+      const books = await controlAccounts(client);
+      const sales = await client.query(`SELECT id, name FROM chart_of_accounts WHERE name ~* 'sales' ORDER BY id LIMIT 1`);
+      const revenue = sales.rows[0] || books.sales;
+      await postJournal(client, {
+        date: issueDate || new Date().toISOString().slice(0, 10),
+        description: `Invoice ${invoiceNumber} — ${clientName || 'Customer'}`,
+        reference: `SALE-${invoiceNumber}`,
+        lines: [
+          { accountId: books.receivable.id, accountName: books.receivable.name, type: 'debit', amount: total },
+          { accountId: revenue.id, accountName: revenue.name, type: 'credit', amount: total },
+        ],
+      });
+    }
+    await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error(error);
     res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 
@@ -121,6 +141,7 @@ router.post('/:id/payment', authMiddleware, async (req: AuthRequest, res: Respon
     const invoiceId = req.params.id;
     const paymentAmount = parseFloat(amount);
 
+    await ensureBooks();
     await client.query('BEGIN');
 
     // 1. Insert payment record
@@ -140,8 +161,9 @@ router.post('/:id/payment', authMiddleware, async (req: AuthRequest, res: Respon
 
     await client.query('UPDATE invoices SET amount_paid=$1, balance_due=$2, status=$3 WHERE id=$4', [totalPaid, Math.max(0, balanceDue), newStatus, invoiceId]);
 
-    const cash = await client.query("SELECT id, name FROM chart_of_accounts WHERE code = '1000'");
-    const receivable = await client.query("SELECT id, name FROM chart_of_accounts WHERE code = '1100'");
+    const books = await controlAccounts(client);
+    const cash = { rows: [books.cash] };
+    const receivable = { rows: [books.receivable] };
     if (cash.rows[0] && receivable.rows[0] && paymentAmount > 0) {
       await postJournal(client, {
         date: date || new Date().toISOString().split('T')[0],

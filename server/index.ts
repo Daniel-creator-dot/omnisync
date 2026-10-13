@@ -79,10 +79,10 @@ app.get('/api/health', async (_req, res) => {
         (SELECT COUNT(*)::int FROM payments) AS payments,
         (SELECT COUNT(*)::int FROM payroll) AS payroll
     `);
-    res.json({ status: 'ok', revision: 'desk-5', books: counts.rows[0], timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', revision: 'desk-6', books: counts.rows[0], timestamp: new Date().toISOString() });
   } catch (error: any) {
     console.error(error);
-    res.status(500).json({ status: 'error', revision: 'desk-5', error: error.message });
+    res.status(500).json({ status: 'error', revision: 'desk-6', error: error.message });
   }
 });
 

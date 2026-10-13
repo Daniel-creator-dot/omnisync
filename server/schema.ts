@@ -201,12 +201,164 @@ async function migrateBooks() {
       }
     }
 
+    await linkJournalAccounts(client);
+    await recognizeInvoices(client);
+
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
+  }
+}
+
+function accountKind(name: string) {
+  const normalized = name.toLowerCase();
+  if (/receivable|\bcash\b|bank|equipment|vehicle|furniture|inventory/.test(normalized)) return 'asset';
+  if (/payable|loan|creditor/.test(normalized)) return 'liability';
+  if (/capital|equity|retained|drawing/.test(normalized)) return 'equity';
+  if (/sales|revenue|income/.test(normalized)) return 'revenue';
+  return 'expense';
+}
+
+function preferredCode(name: string) {
+  const normalized = name.toLowerCase();
+  if (normalized === 'cash') return '1000';
+  if (normalized.includes('receivable')) return '1100';
+  if (normalized.includes('sales') || normalized.includes('revenue')) return '4000';
+  if (/wage|salary/.test(normalized)) return '5100';
+  return '';
+}
+
+async function linkJournalAccounts(client: { query: typeof pool.query }) {
+  const chart = await client.query('SELECT id, code, name, type FROM chart_of_accounts');
+  const byId = new Map(chart.rows.map((row) => [Number(row.id), row]));
+  const byName = new Map(chart.rows.map((row) => [String(row.name).toLowerCase(), row]));
+  const usedCodes = new Set(chart.rows.map((row) => row.code).filter(Boolean));
+
+  const remember = (row: { id: number; code: string | null; name: string }) => {
+    byId.set(Number(row.id), row);
+    byName.set(String(row.name).toLowerCase(), row);
+    if (row.code) usedCodes.add(row.code);
+  };
+
+  const resolve = async (line: { accountId?: number | string; accountName?: string }) => {
+    const requested = Number(line.accountId);
+    if (requested && byId.has(requested)) return requested;
+    const name = String(line.accountName || '').trim();
+    if (!name) return 0;
+    const named = byName.get(name.toLowerCase());
+    if (named) return Number(named.id);
+    let code = preferredCode(name);
+    if (code && usedCodes.has(code)) code = '';
+    const inserted = requested && !byId.has(requested)
+      ? await client.query(
+        `INSERT INTO chart_of_accounts (id, code, name, type, balance)
+         VALUES ($1, NULLIF($2, ''), $3, $4, 0) RETURNING id, code, name`,
+        [requested, code, name, accountKind(name)]
+      )
+      : await client.query(
+        `INSERT INTO chart_of_accounts (code, name, type, balance)
+         VALUES (NULLIF($1, ''), $2, $3, 0) RETURNING id, code, name`,
+        [code, name, accountKind(name)]
+      );
+    remember(inserted.rows[0]);
+    return Number(inserted.rows[0].id);
+  };
+
+  const journals = await client.query('SELECT id, lines FROM journal_entries');
+  for (const journal of journals.rows) {
+    let lines = journal.lines;
+    if (typeof lines === 'string') {
+      try { lines = JSON.parse(lines); } catch { lines = []; }
+    }
+    if (!Array.isArray(lines) || lines.length === 0) continue;
+    const resolved: { accountId: number; debit: number; credit: number }[] = [];
+    for (const line of lines) {
+      const accountId = await resolve(line);
+      if (!accountId) continue;
+      const amount = Number(line.amount || 0);
+      const debit = line.type === 'credit' ? 0 : Number(line.debit || (line.type === 'debit' ? amount : 0) || 0);
+      const credit = line.type === 'debit' ? 0 : Number(line.credit || (line.type === 'credit' ? amount : 0) || 0);
+      if (debit === 0 && credit === 0) continue;
+      resolved.push({ accountId, debit, credit });
+    }
+    if (resolved.length === 0) continue;
+    await client.query('DELETE FROM journal_lines WHERE journal_entry_id = $1', [journal.id]);
+    for (const line of resolved) {
+      await client.query(
+        'INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit) VALUES ($1,$2,$3,$4)',
+        [journal.id, line.accountId, line.debit, line.credit]
+      );
+    }
+  }
+
+  const sequence = await client.query(`SELECT pg_get_serial_sequence('chart_of_accounts', 'id') AS seq`);
+  if (sequence.rows[0]?.seq) {
+    await client.query(
+      `SELECT setval($1::regclass, GREATEST(COALESCE((SELECT MAX(id) FROM chart_of_accounts), 1), 1), true)`,
+      [sequence.rows[0].seq]
+    );
+  }
+}
+
+async function accountByName(client: { query: typeof pool.query }, name: string, code: string, type: string) {
+  const found = await client.query(
+    `SELECT id, name FROM chart_of_accounts
+     WHERE lower(name) = lower($1) OR code = $2
+     ORDER BY CASE WHEN lower(name) = lower($1) THEN 0 ELSE 1 END
+     LIMIT 1`,
+    [name, code]
+  );
+  if (found.rows[0]) return found.rows[0];
+  const created = await client.query(
+    `INSERT INTO chart_of_accounts (code, name, type, balance) VALUES ($1,$2,$3,0) RETURNING id, name`,
+    [code, name, type]
+  );
+  return created.rows[0];
+}
+
+export async function controlAccounts(client: { query: typeof pool.query }) {
+  return {
+    cash: await accountByName(client, 'Cash', '1000', 'asset'),
+    receivable: await accountByName(client, 'Accounts Receivable', '1100', 'asset'),
+    sales: await accountByName(client, 'Sales', '4000', 'revenue'),
+  };
+}
+
+async function recognizeInvoices(client: { query: typeof pool.query }) {
+  if (!(await relationExists('invoices', client))) return;
+  const invoices = await client.query(
+    'SELECT id, invoice_number, client_name, amount, issue_date FROM invoices'
+  );
+  if (invoices.rows.length === 0) return;
+  const books = await controlAccounts(client);
+  const salesNamed = await client.query(
+    `SELECT id, name FROM chart_of_accounts WHERE name ~* 'sales' ORDER BY id LIMIT 1`
+  );
+  const sales = salesNamed.rows[0] || books.sales;
+  for (const invoice of invoices.rows) {
+    const amount = Math.round(Number(invoice.amount || 0) * 100) / 100;
+    if (!(amount > 0)) continue;
+    const reference = `SALE-${invoice.invoice_number || invoice.id}`;
+    const existing = await client.query('SELECT 1 FROM journal_entries WHERE reference = $1 LIMIT 1', [reference]);
+    if (existing.rows.length > 0) continue;
+    const description = `Invoice ${invoice.invoice_number || invoice.id} — ${invoice.client_name || 'Customer'}`;
+    const postedOn = invoice.issue_date || new Date().toISOString().slice(0, 10);
+    const lines = [
+      { accountId: books.receivable.id, accountName: books.receivable.name, type: 'debit', amount },
+      { accountId: sales.id, accountName: sales.name, type: 'credit', amount },
+    ];
+    const inserted = await client.query(
+      `INSERT INTO journal_entries (entry_date, date, description, debit_account, credit_account, amount, reference, lines)
+       VALUES ($1, $1, $2, $3, $4, $5, $6, $7::jsonb) RETURNING id`,
+      [postedOn, description, '1100', sales.name, amount, reference, JSON.stringify(lines)]
+    );
+    await client.query(
+      'INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit) VALUES ($1,$2,$3,0), ($1,$4,0,$3)',
+      [inserted.rows[0].id, books.receivable.id, amount, sales.id]
+    );
   }
 }
 

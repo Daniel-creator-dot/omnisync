@@ -21,6 +21,7 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
     totalRevenue: 0,
     invoiced: 0,
     totalExpenses: 0,
+    ledgerRevenue: 0,
     activeEmployees: 0,
     pendingInvoices: 0,
     activePostings: 0,
@@ -88,7 +89,7 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-300">Today</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">{greeting}, {profile?.displayName?.split(' ')[0] || 'there'}</h1>
-            <p className="mt-2 max-w-md text-sm text-zinc-200">Collected {money(stats.totalRevenue)} against {money(stats.invoiced)} invoiced. Ledger spend is {money(stats.totalExpenses)}.</p>
+            <p className="mt-2 max-w-md text-sm text-zinc-200">Sales in the ledger {money(stats.ledgerRevenue)}. Collected {money(stats.totalRevenue)} of {money(stats.invoiced)} invoiced.</p>
             <div className="mt-6 flex flex-wrap gap-2">
               {shortcuts.map((item) => (
                 <button

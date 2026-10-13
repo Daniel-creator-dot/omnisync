@@ -74,6 +74,9 @@ router.get('/stats', authMiddleware, async (_req: AuthRequest, res: Response) =>
     const ledgerSpend = accounts
       .filter((account) => account.type === 'expense')
       .reduce((sum, account) => sum + account.balance, 0);
+    const ledgerRevenue = accounts
+      .filter((account) => account.type === 'revenue')
+      .reduce((sum, account) => sum + account.balance, 0);
     const ledgerAssets = accounts
       .filter((account) => account.type === 'asset')
       .reduce((sum, account) => sum + account.balance, 0);
@@ -83,6 +86,7 @@ router.get('/stats', authMiddleware, async (_req: AuthRequest, res: Response) =>
       totalRevenue: parseFloat(s.collected),
       invoiced: parseFloat(s.invoiced),
       totalExpenses: ledgerSpend,
+      ledgerRevenue,
       activeEmployees: parseInt(s.active_employees, 10),
       pendingInvoices: parseInt(s.pending_invoices, 10),
       activePostings: parseInt(s.active_postings, 10),
