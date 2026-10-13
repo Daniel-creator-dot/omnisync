@@ -27,8 +27,12 @@ const Banking = () => {
 
   const fetchData = async () => {
     try {
-      const [a, t] = await Promise.all([api.get('/banking/accounts'), api.get('/banking/transfers')]);
-      setAccounts(a); setTransfers(t);
+      const [accountsResult, transfersResult] = await Promise.allSettled([
+        api.get('/banking/accounts'),
+        api.get('/banking/transfers'),
+      ]);
+      setAccounts(accountsResult.status === 'fulfilled' && Array.isArray(accountsResult.value) ? accountsResult.value : []);
+      setTransfers(transfersResult.status === 'fulfilled' && Array.isArray(transfersResult.value) ? transfersResult.value : []);
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };

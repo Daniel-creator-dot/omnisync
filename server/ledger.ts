@@ -1,4 +1,6 @@
 import { PoolClient } from 'pg';
+import pool from './db';
+import { ensureBooks } from './schema';
 
 export function money(n: number) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
@@ -30,7 +32,37 @@ export type AccountRow = {
   balance: number;
 };
 
+export async function listJournals() {
+  await ensureBooks();
+  const result = await pool.query(`
+    SELECT id,
+      COALESCE(entry_date, date, created_at::date) AS date,
+      description,
+      reference,
+      lines,
+      amount,
+      debit_account,
+      credit_account
+    FROM journal_entries
+    ORDER BY COALESCE(entry_date, date, created_at::date) DESC NULLS LAST, id DESC
+  `);
+  return result.rows.map((row) => {
+    let lines = row.lines;
+    if (typeof lines === 'string') {
+      try { lines = JSON.parse(lines); } catch { lines = []; }
+    }
+    if (!Array.isArray(lines) || lines.length === 0) {
+      lines = [
+        { accountName: row.debit_account, type: 'debit', amount: row.amount },
+        { accountName: row.credit_account, type: 'credit', amount: row.amount },
+      ].filter((line) => line.accountName);
+    }
+    return { ...row, lines };
+  });
+}
+
 export async function loadAccounts(client: PoolClient): Promise<AccountRow[]> {
+  await ensureBooks();
   const result = await client.query(`
     SELECT c.id, c.code, c.name, c.type,
       COALESCE(SUM(l.debit), 0)::float AS debit,
@@ -203,12 +235,13 @@ export async function postJournal(
   }));
   const firstDebit = named.find((line) => line.type === 'debit');
   const firstCredit = named.find((line) => line.type === 'credit');
+  const postedOn = entry.date || new Date().toISOString().slice(0, 10);
   const inserted = await client.query(
-    `INSERT INTO journal_entries (entry_date, description, debit_account, credit_account, amount, reference, lines)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
-     RETURNING id, entry_date AS date, description, reference, lines, amount`,
+    `INSERT INTO journal_entries (entry_date, date, description, debit_account, credit_account, amount, reference, lines)
+     VALUES ($1, $1, $2, $3, $4, $5, $6, $7::jsonb)
+     RETURNING id, COALESCE(entry_date, date) AS date, description, reference, lines, amount`,
     [
-      entry.date || new Date().toISOString().slice(0, 10),
+      postedOn,
       entry.description || '',
       firstDebit ? byId.get(firstDebit.accountId)?.code || firstDebit.accountName : 'multiple',
       firstCredit ? byId.get(firstCredit.accountId)?.code || firstCredit.accountName : 'multiple',

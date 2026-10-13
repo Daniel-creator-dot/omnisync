@@ -29,11 +29,16 @@ const GeneralLedger = () => {
   ]);
 
   const fetchData = async () => {
-    try {
-      const [a, e] = await Promise.all([api.get('/accounts'), api.get('/accounts/journal-entries')]);
-      setAccounts(a); setEntries(e);
-    } catch (error) { console.error(error); }
-    finally { setLoading(false); }
+    const [accountsResult, entriesResult] = await Promise.allSettled([
+      api.get('/accounts'),
+      api.get('/accounts/journal-entries'),
+    ]);
+    setAccounts(accountsResult.status === 'fulfilled' && Array.isArray(accountsResult.value) ? accountsResult.value : []);
+    setEntries(entriesResult.status === 'fulfilled' && Array.isArray(entriesResult.value) ? entriesResult.value : []);
+    if (accountsResult.status === 'rejected' && entriesResult.status === 'rejected') {
+      toast.error('The ledger could not be opened');
+    }
+    setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);

@@ -1,13 +1,15 @@
 import { Router, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
-import { JournalError, loadAccounts, money, postJournal } from '../ledger';
+import { JournalError, listJournals, loadAccounts, money, postJournal } from '../ledger';
+import { ensureBooks } from '../schema';
 
 const router = Router();
 
 router.get('/', authMiddleware, async (_req: AuthRequest, res: Response) => {
   const client = await pool.connect();
   try {
+    await ensureBooks();
     res.json(await loadAccounts(client));
   } catch (error) {
     console.error(error);
@@ -83,18 +85,7 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
 
 router.get('/journal-entries', authMiddleware, async (_req: AuthRequest, res: Response) => {
   try {
-    const result = await pool.query(`
-      SELECT id, entry_date AS date, description, reference, lines, amount, debit_account, credit_account
-      FROM journal_entries
-      ORDER BY entry_date DESC NULLS LAST, id DESC
-    `);
-    res.json(result.rows.map((row) => ({
-      ...row,
-      lines: row.lines || [
-        { accountName: row.debit_account, type: 'debit', amount: row.amount },
-        { accountName: row.credit_account, type: 'credit', amount: row.amount },
-      ],
-    })));
+    res.json(await listJournals());
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
@@ -104,6 +95,7 @@ router.get('/journal-entries', authMiddleware, async (_req: AuthRequest, res: Re
 router.post('/journal-entries', authMiddleware, async (req: AuthRequest, res: Response) => {
   const client = await pool.connect();
   try {
+    await ensureBooks();
     await client.query('BEGIN');
     const entry = await postJournal(client, req.body);
     await client.query('COMMIT');

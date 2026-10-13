@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { ensureBooks } from '../schema';
 
 const router = Router();
 router.use(authMiddleware);
@@ -125,20 +126,17 @@ router.post('/commissions', async (req, res) => {
 
 router.get('/cashbook', async (_req: AuthRequest, res) => {
   try {
-    res.json((await pool.query(`
-      SELECT a.*, u.name AS agent_name
-      FROM accounts a
-      LEFT JOIN users u ON u.id = a.agent_id
-      ORDER BY a.created_at DESC
-    `)).rows);
+    await ensureBooks();
+    res.json((await pool.query('SELECT * FROM cashbook_entries ORDER BY created_at DESC')).rows);
   } catch (error) { fail(res, error); }
 });
 
 router.post('/cashbook', async (req: AuthRequest, res) => {
   try {
+    await ensureBooks();
     const { description, amount, type, category, agent_id } = req.body;
     const result = await pool.query(
-      `INSERT INTO accounts (description, amount, type, category, agent_id) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      `INSERT INTO cashbook_entries (description, amount, type, category, agent_id) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [description || null, amount, type, category || null, agent_id || req.user?.id || null]
     );
     res.status(201).json(result.rows[0]);

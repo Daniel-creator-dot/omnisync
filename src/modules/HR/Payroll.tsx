@@ -12,8 +12,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useSettings } from '../../contexts/SettingsContext';
 import { toast } from 'sonner';
 
+function MissingPayslips({ periods, slips, staff, months }: { periods: any[]; slips: any[]; staff: any[]; months: string[] }) {
+  const latest = periods[0];
+  const covered = new Set(
+    slips
+      .filter((slip) => Number(slip.month) === Number(latest.month) && Number(slip.year) === Number(latest.year))
+      .map((slip) => Number(slip.employee_id))
+  );
+  const missing = staff.filter((person) => person.status === 'active' && !covered.has(Number(person.id)));
+  if (missing.length === 0) return null;
+  const label = `${months[(Number(latest.month) || 1) - 1]} ${latest.year}`;
+  return (
+    <div className="border-t px-4 sm:px-6 py-3 text-sm text-muted-foreground">
+      <p className="font-medium text-foreground">Active staff with no payslip for {label}</p>
+      <ul className="mt-1 space-y-1">
+        {missing.map((person) => (
+          <li key={person.id}>{person.name} — salary {Number(person.salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const PayrollModule = () => {
   const [periods, setPeriods] = useState<any[]>([]);
+  const [slips, setSlips] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [periodRecords, setPeriodRecords] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
@@ -65,11 +89,18 @@ const PayrollModule = () => {
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
   const fetchPeriods = async () => {
-    try {
-      const data = await api.get('/payroll/periods');
-      setPeriods(data);
-    } catch (error) { console.error(error); }
-    finally { setLoading(false); }
+    const [periodResult, slipResult, staffResult] = await Promise.allSettled([
+      api.get('/payroll/periods'),
+      api.get('/payroll'),
+      api.get('/employees'),
+    ]);
+    setPeriods(periodResult.status === 'fulfilled' && Array.isArray(periodResult.value) ? periodResult.value : []);
+    setSlips(slipResult.status === 'fulfilled' && Array.isArray(slipResult.value) ? slipResult.value : []);
+    setStaff(staffResult.status === 'fulfilled' && Array.isArray(staffResult.value) ? staffResult.value : []);
+    if (periodResult.status === 'rejected' && slipResult.status === 'rejected') {
+      toast.error('Payroll could not be loaded');
+    }
+    setLoading(false);
   };
 
   useEffect(() => { fetchPeriods(); }, []);
@@ -162,7 +193,7 @@ const PayrollModule = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Payroll</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Payroll</h1>
         <Dialog open={isRunOpen} onOpenChange={setIsRunOpen}>
           <DialogTrigger render={<Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 gap-2" />}>
             <Play className="h-4 w-4" /> Run Payroll
@@ -261,6 +292,45 @@ const PayrollModule = () => {
           </div>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="px-4 sm:px-6">
+          <CardTitle className="text-lg font-semibold">Payslips on file</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <p className="text-center py-10 text-muted-foreground">Loading payslips...</p>
+          ) : slips.length === 0 ? (
+            <p className="text-center py-10 text-muted-foreground">No payslips are stored yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Period</TableHead>
+                    <TableHead>Net</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {slips.map((slip) => (
+                    <TableRow key={slip.id}>
+                      <TableCell className="font-medium">{slip.employee_name}</TableCell>
+                      <TableCell>{months[(Number(slip.month) || 1) - 1]} {slip.year}</TableCell>
+                      <TableCell className="font-bold">{currencySymbol}{parseFloat(slip.net_salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell><Badge variant="outline">{slip.status}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {!loading && periods[0] && staff.length > 0 && (
+            <MissingPayslips periods={periods} slips={slips} staff={staff} months={months} />
+          )}
+        </CardContent>
+      </Card>
 
       {/* Payroll Periods */}
       <Card className="bg-white border-slate-200 overflow-hidden">

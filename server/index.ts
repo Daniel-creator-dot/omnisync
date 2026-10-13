@@ -30,6 +30,8 @@ import exitManagementRoutes from './routes/exit-management';
 import smsSettingsRoutes from './routes/sms-settings';
 import insuranceRoutes from './routes/insurance';
 import taskRoutes from './routes/tasks';
+import pool from './db';
+import { ensureBooks } from './schema';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -67,11 +69,29 @@ app.use('/api/insurance', insuranceRoutes);
 app.use('/api/tasks', taskRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', revision: 'desk-3', timestamp: new Date().toISOString() });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await ensureBooks();
+    const counts = await pool.query(`
+      SELECT
+        (SELECT COUNT(*)::int FROM chart_of_accounts) AS accounts,
+        (SELECT COUNT(*)::int FROM journal_entries) AS journals,
+        (SELECT COUNT(*)::int FROM payments) AS payments,
+        (SELECT COUNT(*)::int FROM payroll) AS payroll
+    `);
+    res.json({ status: 'ok', revision: 'books-1', books: counts.rows[0], timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    console.error(error);
+    res.status(500).json({ status: 'error', revision: 'books-1', error: error.message });
+  }
 });
 
 async function start() {
+  try {
+    await ensureBooks();
+  } catch (error) {
+    console.error('books setup failed', error);
+  }
   app.listen(PORT, () => {
     console.log(`API server running on http://localhost:${PORT}`);
   });

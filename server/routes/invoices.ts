@@ -56,6 +56,22 @@ router.get('/summary', authMiddleware, async (req: AuthRequest, res: Response) =
   }
 });
 
+// GET /api/invoices/payments — registered before /:id
+router.get('/payments', authMiddleware, async (_req: AuthRequest, res: Response) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.*, i.invoice_number, i.client_name
+      FROM payments p
+      LEFT JOIN invoices i ON i.id = p.invoice_id
+      ORDER BY p.date DESC NULLS LAST, p.id DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /api/invoices/:id
 router.get('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {

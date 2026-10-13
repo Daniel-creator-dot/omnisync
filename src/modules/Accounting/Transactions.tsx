@@ -7,86 +7,158 @@ import { ArrowUpRight, ArrowDownRight, DollarSign, Eye, Info, Calendar, FileText
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { useSettings } from '../../contexts/SettingsContext';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+
+const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const asList = (value: unknown) => (Array.isArray(value) ? value : []);
+
+const stamp = (value: unknown) => {
+  const time = new Date(value as string).getTime();
+  return Number.isNaN(time) ? 0 : time;
+};
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState('');
+  const [query, setQuery] = useState('');
   const [viewingTxn, setViewingTxn] = useState<any | null>(null);
   const { currencySymbol } = useSettings();
 
   useEffect(() => {
     const fetchAll = async () => {
-      try {
-        const [invoices, expenses, payments] = await Promise.all([
-          api.get('/invoices'),
-          api.get('/expenses'),
-          api.get('/accounts/journal-entries'),
-        ]);
+      const paths = ['/invoices', '/invoices/payments', '/expenses', '/payroll', '/accounts/journal-entries'];
+      const settled = await Promise.all(paths.map(async (path) => {
+        try {
+          return { path, rows: asList(await api.get(path)), error: '' };
+        } catch (error: any) {
+          return { path, rows: [], error: error?.message || 'unavailable' };
+        }
+      }));
+      const byPath = Object.fromEntries(settled.map((item) => [item.path, item.rows]));
+      const failed = settled.filter((item) => item.error).map((item) => item.path.replace('/accounts/', ''));
 
-        // Combine into unified transaction list
-        const txns: any[] = [];
+      const txns: any[] = [];
 
-        invoices.forEach((inv: any) => {
-          txns.push({
-            id: `inv-${inv.id}`,
-            date: inv.issue_date || inv.created_at,
-            type: 'Invoice',
-            description: `${inv.invoice_number} — ${inv.client_name}`,
-            amount: parseFloat(inv.amount || 0),
-            direction: 'in',
-            status: inv.status,
-          });
+      byPath['/invoices'].forEach((inv: any) => {
+        txns.push({
+          id: `inv-${inv.id}`,
+          date: inv.issue_date || inv.created_at,
+          type: 'Invoice',
+          description: `${inv.invoice_number || 'Invoice'} — ${inv.client_name || 'Customer'}`,
+          amount: parseFloat(inv.amount || 0),
+          direction: 'in',
+          status: inv.status || 'pending',
         });
+      });
 
-        expenses.forEach((exp: any) => {
-          txns.push({
-            id: `exp-${exp.id}`,
-            date: exp.date || exp.created_at,
-            type: 'Expense',
-            description: `${exp.category} — ${exp.description || ''}`,
-            amount: parseFloat(exp.amount || 0),
-            direction: 'out',
-            status: exp.status,
-          });
+      byPath['/invoices/payments'].forEach((payment: any) => {
+        txns.push({
+          id: `pay-${payment.id}`,
+          date: payment.date || payment.created_at,
+          type: 'Payment',
+          description: `${payment.invoice_number || `Invoice ${payment.invoice_id}`} — ${payment.client_name || 'Customer'}${payment.reference ? ` · ${payment.reference}` : ''}`,
+          amount: parseFloat(payment.amount || 0),
+          direction: 'in',
+          status: payment.method || 'received',
         });
+      });
 
-        // Sort by date descending
-        txns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setTransactions(txns);
-      } catch (error) { console.error(error); }
-      finally { setLoading(false); }
+      byPath['/expenses'].forEach((exp: any) => {
+        txns.push({
+          id: `exp-${exp.id}`,
+          date: exp.date || exp.created_at,
+          type: 'Expense',
+          description: `${exp.category || 'Expense'} — ${exp.description || ''}`,
+          amount: parseFloat(exp.amount || 0),
+          direction: 'out',
+          status: exp.status || 'pending',
+        });
+      });
+
+      byPath['/payroll'].forEach((slip: any) => {
+        const month = months[(Number(slip.month) || 1) - 1] || slip.month;
+        txns.push({
+          id: `payr-${slip.id}`,
+          date: slip.created_at,
+          type: 'Payroll',
+          description: `${slip.employee_name} — ${month} ${slip.year}`,
+          amount: parseFloat(slip.net_salary || 0),
+          direction: 'out',
+          status: slip.status || 'pending',
+        });
+      });
+
+      byPath['/accounts/journal-entries'].forEach((entry: any) => {
+        const lines = Array.isArray(entry.lines) ? entry.lines : [];
+        const amount = parseFloat(entry.amount || 0) || lines
+          .filter((line: any) => line.type === 'debit')
+          .reduce((sum: number, line: any) => sum + parseFloat(line.amount || line.debit || 0), 0);
+        txns.push({
+          id: `je-${entry.id}`,
+          date: entry.date || entry.created_at,
+          type: 'Journal',
+          description: entry.description || entry.reference || `Journal ${entry.id}`,
+          amount,
+          direction: 'journal',
+          status: 'posted',
+        });
+      });
+
+      txns.sort((a, b) => stamp(b.date) - stamp(a.date));
+      setTransactions(txns);
+      setNotice(failed.length ? `Some books could not be opened: ${failed.join(', ')}.` : '');
+      setLoading(false);
     };
     fetchAll();
   }, []);
 
-  const totalIn = transactions.filter(t => t.direction === 'in').reduce((s, t) => s + t.amount, 0);
-  const totalOut = transactions.filter(t => t.direction === 'out').reduce((s, t) => s + t.amount, 0);
+  const visible = transactions.filter((txn) => {
+    const hay = `${txn.type} ${txn.description} ${txn.status}`.toLowerCase();
+    return hay.includes(query.trim().toLowerCase());
+  });
+  const sum = (type: string) => transactions.filter((txn) => txn.type === type).reduce((total, txn) => total + txn.amount, 0);
+  const invoiced = sum('Invoice');
+  const collected = sum('Payment');
+  const payroll = sum('Payroll');
+  const expenses = sum('Expense');
+  const money = (amount: number) => `${currencySymbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Transactions</h1>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-emerald-100 p-2 rounded-lg"><ArrowUpRight className="h-5 w-5 text-emerald-600" /></div><div><p className="text-xs text-slate-500">Money In</p><p className="text-xl font-bold text-emerald-600">{currencySymbol}{totalIn.toLocaleString(undefined, {minimumFractionDigits:2})}</p></div></div></Card>
-        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-rose-100 p-2 rounded-lg"><ArrowDownRight className="h-5 w-5 text-rose-600" /></div><div><p className="text-xs text-slate-500">Money Out</p><p className="text-xl font-bold text-rose-600">{currencySymbol}{totalOut.toLocaleString(undefined, {minimumFractionDigits:2})}</p></div></div></Card>
-        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-indigo-100 p-2 rounded-lg"><DollarSign className="h-5 w-5 text-indigo-600" /></div><div><p className="text-xs text-slate-500">Net</p><p className={`text-xl font-bold ${(totalIn - totalOut) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{currencySymbol}{(totalIn - totalOut).toLocaleString(undefined, {minimumFractionDigits:2})}</p></div></div></Card>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Transactions</h1>
+          <p className="text-sm text-muted-foreground">Invoices, payments collected, expenses, payslips, and journal entries.</p>
+        </div>
+        <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, invoice, or type" className="sm:max-w-xs" />
       </div>
 
-      <Card className="bg-white border-slate-200">
+      {notice && <p className="text-sm text-amber-700 dark:text-amber-300">{notice}</p>}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-emerald-100 p-2 rounded-lg"><ArrowUpRight className="h-5 w-5 text-emerald-600" /></div><div><p className="text-xs text-muted-foreground">Invoiced</p><p className="text-xl font-bold text-emerald-600">{money(invoiced)}</p></div></div></Card>
+        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-sky-100 p-2 rounded-lg"><DollarSign className="h-5 w-5 text-sky-600" /></div><div><p className="text-xs text-muted-foreground">Collected</p><p className="text-xl font-bold text-sky-700 dark:text-sky-300">{money(collected)}</p></div></div></Card>
+        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-rose-100 p-2 rounded-lg"><ArrowDownRight className="h-5 w-5 text-rose-600" /></div><div><p className="text-xs text-muted-foreground">Payroll</p><p className="text-xl font-bold text-rose-600">{money(payroll)}</p></div></div></Card>
+        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-amber-100 p-2 rounded-lg"><FileText className="h-5 w-5 text-amber-700" /></div><div><p className="text-xs text-muted-foreground">Expenses</p><p className="text-xl font-bold text-amber-700 dark:text-amber-300">{money(expenses)}</p></div></div></Card>
+      </div>
+
+      <Card>
         <CardHeader><CardTitle>All Transactions</CardTitle></CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Type</TableHead><TableHead>Description</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
               <TableBody>
-                {loading ? (<TableRow><TableCell colSpan={6} className="text-center py-10 text-slate-500">Loading...</TableCell></TableRow>
-                ) : transactions.length === 0 ? (<TableRow><TableCell colSpan={6} className="text-center py-10 text-slate-500">No transactions.</TableCell></TableRow>
-                ) : transactions.map(txn => (
+                {loading ? (<TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Loading...</TableCell></TableRow>
+                ) : visible.length === 0 ? (<TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">{transactions.length === 0 ? 'No transactions are stored yet.' : 'Nothing matches that search.'}</TableCell></TableRow>
+                ) : visible.map(txn => (
                   <TableRow key={txn.id}>
-                    <TableCell className="text-slate-500">{new Date(txn.date).toLocaleDateString()}</TableCell>
-                    <TableCell><Badge variant="outline" className={txn.direction === 'in' ? 'border-emerald-200 text-emerald-700' : 'border-rose-200 text-rose-700'}>{txn.type}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground">{stamp(txn.date) ? new Date(txn.date).toLocaleDateString() : '—'}</TableCell>
+                    <TableCell><Badge variant="outline" className={txn.direction === 'in' ? 'border-emerald-200 text-emerald-700' : txn.direction === 'out' ? 'border-rose-200 text-rose-700' : 'border-indigo-200 text-indigo-700'}>{txn.type}</Badge></TableCell>
                     <TableCell className="font-medium max-w-xs truncate">{txn.description}</TableCell>
-                    <TableCell className={`font-bold ${txn.direction === 'in' ? 'text-emerald-600' : 'text-rose-600'}`}>{txn.direction === 'in' ? '+' : '-'}{currencySymbol}{txn.amount.toLocaleString(undefined, {minimumFractionDigits:2})}</TableCell>
+                    <TableCell className={`font-bold ${txn.direction === 'in' ? 'text-emerald-600' : txn.direction === 'out' ? 'text-rose-600' : 'text-foreground'}`}>{txn.direction === 'in' ? '+' : txn.direction === 'out' ? '-' : ''}{money(txn.amount)}</TableCell>
                     <TableCell><Badge className={txn.status === 'paid' || txn.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : txn.status === 'overdue' || txn.status === 'rejected' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}>{txn.status}</Badge></TableCell>
                     <TableCell className="text-right">
                        <Button variant="ghost" size="icon" onClick={() => setViewingTxn(txn)} title="View Detail">
