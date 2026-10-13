@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { balanceSheet, loadAccounts, profitAndLoss, trialBalance } from '../ledger';
+import { bankTable, ensureBooks } from '../schema';
 
 const router = Router();
 
@@ -85,14 +86,17 @@ router.get('/reports/balance-sheet', authMiddleware, async (req: AuthRequest, re
 
 // Cash Flow Statement
 router.get('/reports/cash-flow', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
   try {
-    const invoicePayments = await pool.query("SELECT COALESCE(SUM(amount),0) as total FROM payments");
-    const expensesPaid = await pool.query("SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status='approved'");
+    await ensureBooks();
+    const table = await bankTable();
+    const invoicePayments = await pool.query('SELECT COALESCE(SUM(amount),0) as total FROM payments');
     const payrollPaid = await pool.query("SELECT COALESCE(SUM(net_salary),0) as total FROM payroll WHERE status='paid'");
-    const bankBalance = await pool.query("SELECT COALESCE(SUM(balance),0) as total FROM banks");
+    const bankBalance = await pool.query(`SELECT COALESCE(SUM(balance),0) as total FROM ${table}`);
+    const spent = profitAndLoss(await loadAccounts(client)).totalExpenses;
 
     const cashIn = parseFloat(invoicePayments.rows[0].total);
-    const cashOutExpenses = parseFloat(expensesPaid.rows[0].total);
+    const cashOutExpenses = spent;
     const cashOutPayroll = parseFloat(payrollPaid.rows[0].total);
     const cashOut = cashOutExpenses + cashOutPayroll;
 
@@ -108,6 +112,7 @@ router.get('/reports/cash-flow', authMiddleware, async (req: AuthRequest, res: R
       netCashFlow: cashIn - cashOut,
     });
   } catch (error) { console.error(error); res.status(500).json({ error: 'Server error' }); }
+  finally { client.release(); }
 });
 
 // AR Aging Report
@@ -191,19 +196,27 @@ router.get('/reports/revenue-by-customer', authMiddleware, async (req: AuthReque
 
 // Expense Report by Category with monthly breakdown
 router.get('/reports/expense-summary', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
   try {
-    const byCategory = await pool.query(`
-      SELECT category, COUNT(*)::int as count, COALESCE(SUM(amount),0)::numeric as total
-      FROM expenses WHERE status='approved' GROUP BY category ORDER BY total DESC
-    `);
+    await ensureBooks();
+    const ledger = profitAndLoss(await loadAccounts(client));
+    const byCategory = ledger.expensesByCategory
+      .filter((row) => Math.abs(row.total) >= 0.01)
+      .map((row) => ({ category: row.category, count: 1, total: row.total }));
     const byMonth = await pool.query(`
-      SELECT TO_CHAR(date, 'YYYY-MM') as month, COALESCE(SUM(amount),0)::numeric as total
-      FROM expenses WHERE status='approved' AND date IS NOT NULL
-      GROUP BY TO_CHAR(date, 'YYYY-MM') ORDER BY month DESC LIMIT 12
+      SELECT TO_CHAR(COALESCE(j.entry_date, j.date, j.created_at), 'YYYY-MM') AS month,
+        COALESCE(SUM(l.debit - l.credit), 0)::float AS total
+      FROM journal_lines l
+      JOIN journal_entries j ON j.id = l.journal_entry_id
+      JOIN chart_of_accounts c ON c.id = l.account_id
+      WHERE lower(c.type) = 'expense'
+      GROUP BY 1
+      ORDER BY month DESC
+      LIMIT 12
     `);
-    const total = await pool.query("SELECT COALESCE(SUM(amount),0) as total FROM expenses WHERE status='approved'");
-    res.json({ byCategory: byCategory.rows, byMonth: byMonth.rows, total: parseFloat(total.rows[0].total) });
+    res.json({ byCategory, byMonth: byMonth.rows, total: ledger.totalExpenses });
   } catch (error) { console.error(error); res.status(500).json({ error: 'Server error' }); }
+  finally { client.release(); }
 });
 
 export default router;

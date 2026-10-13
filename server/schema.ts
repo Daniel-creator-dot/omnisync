@@ -82,6 +82,11 @@ async function migrateBooks() {
       )
     `);
 
+    if (await relationExists('expenses', client)) {
+      await client.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS account_id INTEGER`);
+      await client.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)`);
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id SERIAL PRIMARY KEY,

@@ -19,12 +19,17 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
   const { currencySymbol } = useSettings();
   const [stats, setStats] = useState({
     totalRevenue: 0,
+    invoiced: 0,
     totalExpenses: 0,
     activeEmployees: 0,
     pendingInvoices: 0,
     activePostings: 0,
     totalAssets: 0,
+    bankCash: 0,
+    bankAccounts: 0,
+    payrollOutstanding: 0,
     monthlyHistory: [] as { name: string; revenue: number; expenses: number }[],
+    recent: [] as { id: number; date: string; label: string; detail: string; amount: number }[],
   });
   const [tasks, setTasks] = useState<DeskTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,9 +68,9 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
 
   const shortcuts = [
     { id: 'acc-sales', label: 'New invoice', detail: 'Sales' },
-    { id: 'desk-tasks', label: 'Add a task', detail: 'Follow-ups' },
-    { id: 'ins-policies', label: 'Policies', detail: 'Insurance' },
-    { id: 'employees', label: 'People', detail: 'HR' },
+    { id: 'acc-expenses', label: 'Record spend', detail: 'Expenses' },
+    { id: 'payroll', label: 'Payroll', detail: 'People' },
+    { id: 'acc-banking', label: 'Banking', detail: 'Cash' },
   ];
 
   if (loading) {
@@ -83,7 +88,7 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-300">Today</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">{greeting}, {profile?.displayName?.split(' ')[0] || 'there'}</h1>
-            <p className="mt-2 max-w-md text-sm text-zinc-200">Money, people, and the follow-ups still sitting on the desk.</p>
+            <p className="mt-2 max-w-md text-sm text-zinc-200">Collected {money(stats.totalRevenue)} against {money(stats.invoiced)} invoiced. Ledger spend is {money(stats.totalExpenses)}.</p>
             <div className="mt-6 flex flex-wrap gap-2">
               {shortcuts.map((item) => (
                 <button
@@ -98,10 +103,10 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
             </div>
           </div>
           <div className="rounded-2xl bg-white/6 p-5">
-            <p className="text-xs text-zinc-200">Net so far</p>
+            <p className="text-xs text-zinc-200">Collected minus ledger spend</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight">{money(Math.abs(net))}</p>
             <p className={`mt-1 text-sm ${net >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
-              {net >= 0 ? 'Ahead of expenses' : 'Expenses are ahead'}
+              {net >= 0 ? 'Collections are ahead of ledger spend' : 'Ledger spend is ahead of collections'}
             </p>
           </div>
         </div>
@@ -114,17 +119,46 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Metric label="Revenue" value={money(stats.totalRevenue)} note="Paid invoices" icon={TrendingUp} />
-        <Metric label="Expenses" value={money(stats.totalExpenses)} note="Approved spend" icon={TrendingDown} />
-        <Metric label="Open invoices" value={String(stats.pendingInvoices ?? 0)} note="Waiting on payment" icon={FileText} />
-        <Metric label="People" value={String(stats.activeEmployees ?? 0)} note={`${stats.activePostings ?? 0} open roles`} icon={Users} />
+        <Metric label="Collected" value={money(stats.totalRevenue)} note="Customer payments" icon={TrendingUp} onOpen={() => onOpen('acc-transactions')} />
+        <Metric label="Ledger spend" value={money(stats.totalExpenses)} note="Expense accounts" icon={TrendingDown} onOpen={() => onOpen('acc-expenses')} />
+        <Metric label="In the bank" value={money(stats.bankCash)} note={`${stats.bankAccounts ?? 0} accounts`} icon={FileText} onOpen={() => onOpen('acc-banking')} />
+        <Metric label="Payroll to pay" value={money(stats.payrollOutstanding)} note="Approved, not paid" icon={Users} onOpen={() => onOpen('payroll')} />
+      </div>
+
+      <div className="rounded-3xl border border-border bg-card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold">Latest in the books</h2>
+            <p className="text-xs text-muted-foreground">Journal entries already stored</p>
+          </div>
+          <button type="button" onClick={() => onOpen('acc-transactions')} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-300">
+            Transactions <ArrowUpRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {stats.recent.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No journal entries yet.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {stats.recent.map((item) => (
+              <li key={item.id}>
+                <button type="button" onClick={() => onOpen('acc-transactions')} className="flex w-full items-center justify-between gap-3 py-3 text-left">
+                  <span>
+                    <span className="block truncate text-sm font-medium">{item.label}</span>
+                    <span className="text-xs text-muted-foreground">{item.detail}{item.date ? ` · ${String(item.date).slice(0, 10)}` : ''}</span>
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold">{money(item.amount)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="rounded-3xl border border-border bg-card p-5 lg:col-span-3">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold">Revenue and expenses</h2>
+              <h2 className="text-base font-semibold">Collections and ledger spend</h2>
               <p className="text-xs text-muted-foreground">Last six months</p>
             </div>
             <button type="button" onClick={() => onOpen('acc-reports')} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-300">
@@ -178,7 +212,7 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
             </ul>
           )}
           <div className="mt-4 flex items-center justify-between rounded-2xl bg-muted/50 px-3 py-3 text-sm">
-            <span className="inline-flex items-center gap-2 text-muted-foreground"><Package className="h-4 w-4" /> Assets</span>
+            <span className="inline-flex items-center gap-2 text-muted-foreground"><Package className="h-4 w-4" /> Ledger assets</span>
             <span className="font-medium">{money(stats.totalAssets)}</span>
           </div>
           <div className="mt-2 flex items-center justify-between rounded-2xl bg-muted/50 px-3 py-3 text-sm">
@@ -191,16 +225,16 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
   );
 };
 
-function Metric({ label, value, note, icon: Icon }: { label: string; value: string; note: string; icon: React.ComponentType<{ className?: string }> }) {
+function Metric({ label, value, note, icon: Icon, onOpen }: { label: string; value: string; note: string; icon: React.ComponentType<{ className?: string }>; onOpen: () => void }) {
   return (
-    <div className="rounded-2xl border border-border bg-card px-4 py-4">
+    <button type="button" onClick={onOpen} className="rounded-2xl border border-border bg-card px-4 py-4 text-left">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
         <Icon className="h-4 w-4 text-indigo-500" />
       </div>
       <p className="mt-3 text-xl font-semibold tracking-tight">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{note}</p>
-    </div>
+    </button>
   );
 }
 

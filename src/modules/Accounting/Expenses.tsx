@@ -16,24 +16,45 @@ import { toast } from 'sonner';
 const Expenses = () => {
   const { profile } = useAuth();
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [viewingExpense, setViewingExpense] = useState<any | null>(null);
   const { currencySymbol } = useSettings();
-  const [newExpense, setNewExpense] = useState({ category: '', amount: 0, date: new Date().toISOString().split('T')[0], description: '', paymentMethod: 'cash' });
+  const [spend, setSpend] = useState({ accountId: '', paidFromId: '', amount: 0, date: new Date().toISOString().split('T')[0], description: '' });
 
   const fetchData = async () => {
-    try { const data = await api.get('/expenses'); setExpenses(data); }
-    catch (error) { console.error(error); }
-    finally { setLoading(false); }
+    const [expenseResult, activityResult, accountResult] = await Promise.allSettled([
+      api.get('/expenses'),
+      api.get('/expenses/activity'),
+      api.get('/accounts'),
+    ]);
+    setExpenses(expenseResult.status === 'fulfilled' && Array.isArray(expenseResult.value) ? expenseResult.value : []);
+    setActivity(activityResult.status === 'fulfilled' && Array.isArray(activityResult.value) ? activityResult.value : []);
+    const books = accountResult.status === 'fulfilled' && Array.isArray(accountResult.value) ? accountResult.value : [];
+    setAccounts(books);
+    setSpend((current) => ({
+      ...current,
+      accountId: current.accountId || String(books.find((account) => account.type === 'expense')?.id || ''),
+      paidFromId: current.paidFromId || String(books.find((account) => account.type === 'asset' && /bank|cash/i.test(account.name))?.id || books.find((account) => account.type === 'asset')?.id || ''),
+    }));
+    setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const recordSpend = async (e: React.FormEvent) => {
     e.preventDefault();
-    try { await api.post('/expenses', { ...newExpense, amount: Number(newExpense.amount), status: 'pending' }); toast.success('Expense added'); setIsAddOpen(false); setNewExpense({ category: '', amount: 0, date: new Date().toISOString().split('T')[0], description: '', paymentMethod: 'cash' }); fetchData(); }
-    catch (error: any) { toast.error(error.message); }
+    try {
+      await api.post('/expenses/spend', { ...spend, amount: Number(spend.amount) });
+      toast.success('Spend posted to the ledger');
+      setIsAddOpen(false);
+      setSpend((current) => ({ ...current, amount: 0, description: '' }));
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -48,51 +69,84 @@ const Expenses = () => {
   };
 
   const canApprove = profile?.role === 'admin' || profile?.role === 'accountant';
-  const totalExpenses = expenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+  const ledgerTotal = activity.reduce((sum, line) => sum + Number(line.amount || 0), 0);
   const pendingCount = expenses.filter(e => e.status === 'pending').length;
-  const approvedTotal = expenses.filter(e => e.status === 'approved').reduce((s, e) => s + parseFloat(e.amount || 0), 0);
-
-  const categories = ['Office Supplies', 'Travel', 'Software', 'Marketing', 'Utilities', 'Insurance', 'Meals', 'Equipment', 'Professional Services', 'Other'];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Expenses</h1>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Expenses</h1>
+          <p className="text-sm text-muted-foreground">Spend already in the ledger, plus claims still waiting for approval.</p>
+        </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger render={<Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 gap-2" />}><Plus className="h-4 w-4" /> Add Expense</DialogTrigger>
+          <DialogTrigger render={<Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 gap-2" />}><Plus className="h-4 w-4" /> Record spend</DialogTrigger>
           <DialogContent className="sm:max-w-[500px] w-[95vw]">
-            <DialogHeader><DialogTitle>Add Expense</DialogTitle></DialogHeader>
-            <form onSubmit={handleAdd} className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Category</Label>
-                  <Select onValueChange={(v: string) => setNewExpense({...newExpense, category: v})} required>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2"><Label>Payment Method</Label>
-                  <Select value={newExpense.paymentMethod} onValueChange={(v: string) => setNewExpense({...newExpense, paymentMethod: v})}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="cash">Cash</SelectItem><SelectItem value="credit_card">Credit Card</SelectItem><SelectItem value="bank_transfer">Bank Transfer</SelectItem><SelectItem value="check">Check</SelectItem></SelectContent>
-                  </Select>
-                </div>
+            <DialogHeader><DialogTitle>Record spend</DialogTitle></DialogHeader>
+            <form onSubmit={recordSpend} className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label>Expense account</Label>
+                <Select value={spend.accountId} onValueChange={(value: string) => setSpend({ ...spend, accountId: value })}>
+                  <SelectTrigger><SelectValue placeholder="Choose an account" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.filter((account) => account.type === 'expense').map((account) => (
+                      <SelectItem key={account.id} value={String(account.id)}>{account.code} {account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Paid from</Label>
+                <Select value={spend.paidFromId} onValueChange={(value: string) => setSpend({ ...spend, paidFromId: value })}>
+                  <SelectTrigger><SelectValue placeholder="Cash or bank" /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.filter((account) => account.type === 'asset').map((account) => (
+                      <SelectItem key={account.id} value={String(account.id)}>{account.code} {account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Amount ({currencySymbol})</Label><Input type="number" step="0.01" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: Number(e.target.value)})} required /></div>
-                <div className="space-y-2"><Label>Date</Label><Input type="date" value={newExpense.date} onChange={e => setNewExpense({...newExpense, date: e.target.value})} required /></div>
+                <div className="space-y-2"><Label>Amount ({currencySymbol})</Label><Input type="number" step="0.01" min="0.01" value={spend.amount} onChange={(event) => setSpend({ ...spend, amount: Number(event.target.value) })} required /></div>
+                <div className="space-y-2"><Label>Date</Label><Input type="date" value={spend.date} onChange={(event) => setSpend({ ...spend, date: event.target.value })} required /></div>
               </div>
-              <div className="space-y-2"><Label>Description</Label><Input value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} placeholder="What was this expense for?" /></div>
-              <Button type="submit" className="w-full bg-indigo-600">Add Expense</Button>
+              <div className="space-y-2"><Label>Description</Label><Input value={spend.description} onChange={(event) => setSpend({ ...spend, description: event.target.value })} placeholder="What was this for?" required /></div>
+              <Button type="submit" className="w-full bg-indigo-600" disabled={!spend.accountId || !spend.paidFromId}>Post to the ledger</Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-rose-100 p-2 rounded-lg"><DollarSign className="h-5 w-5 text-rose-600" /></div><div><p className="text-xs text-slate-500">Total Expenses</p><p className="text-2xl font-bold text-rose-600">{currencySymbol}{totalExpenses.toLocaleString(undefined, {minimumFractionDigits:2})}</p></div></div></Card>
-        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-amber-100 p-2 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div><div><p className="text-xs text-slate-500">Pending Approval</p><p className="text-2xl font-bold text-amber-600">{pendingCount}</p></div></div></Card>
-        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-emerald-100 p-2 rounded-lg"><Receipt className="h-5 w-5 text-emerald-600" /></div><div><p className="text-xs text-slate-500">Approved</p><p className="text-2xl font-bold text-emerald-600">{currencySymbol}{approvedTotal.toLocaleString(undefined, {minimumFractionDigits:2})}</p></div></div></Card>
+        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-rose-100 p-2 rounded-lg"><DollarSign className="h-5 w-5 text-rose-600" /></div><div><p className="text-xs text-muted-foreground">Ledger spend</p><p className="text-2xl font-bold text-rose-600">{currencySymbol}{ledgerTotal.toLocaleString(undefined, {minimumFractionDigits:2})}</p></div></div></Card>
+        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-indigo-100 p-2 rounded-lg"><Receipt className="h-5 w-5 text-indigo-600" /></div><div><p className="text-xs text-muted-foreground">Ledger lines</p><p className="text-2xl font-bold">{activity.length}</p></div></div></Card>
+        <Card className="p-4"><div className="flex items-center gap-3"><div className="bg-amber-100 p-2 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div><div><p className="text-xs text-muted-foreground">Claims waiting</p><p className="text-2xl font-bold text-amber-600">{pendingCount}</p></div></div></Card>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>Spend in the ledger</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Date</TableHead><TableHead>Account</TableHead><TableHead>Description</TableHead><TableHead>Amount</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {loading ? <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">Loading...</TableCell></TableRow> :
+                activity.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No spend is in the ledger yet.</TableCell></TableRow> :
+                activity.map((line, index) => (
+                  <TableRow key={`${line.journal_id}-${line.account_id}-${index}`}>
+                    <TableCell className="text-muted-foreground">{line.date ? new Date(line.date).toLocaleDateString() : '—'}</TableCell>
+                    <TableCell className="font-medium">{line.code} {line.account_name}</TableCell>
+                    <TableCell className="max-w-[240px] truncate">{line.description || line.reference || 'Journal'}</TableCell>
+                    <TableCell className={Number(line.amount) < 0 ? 'font-bold text-emerald-600' : 'font-bold text-rose-600'}>{currencySymbol}{Number(line.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="bg-white border-slate-200 overflow-hidden">
         <CardHeader><CardTitle>All Expenses</CardTitle></CardHeader>
@@ -105,7 +159,7 @@ const Expenses = () => {
               </TableRow></TableHeader>
               <TableBody>
                 {loading ? <TableRow><TableCell colSpan={6} className="text-center py-10 text-slate-500">Loading...</TableCell></TableRow> :
-                expenses.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-10 text-slate-500">No expenses.</TableCell></TableRow> :
+                expenses.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">No claims are waiting.</TableCell></TableRow> :
                 expenses.map((exp: any) => (
                   <TableRow key={exp.id}>
                     <TableCell><div><p className="font-medium">{exp.category}</p><p className="text-xs text-slate-400 sm:hidden">{exp.date ? new Date(exp.date).toLocaleDateString() : ''}</p></div></TableCell>

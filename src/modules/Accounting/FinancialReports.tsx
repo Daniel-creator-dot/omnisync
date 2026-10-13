@@ -159,7 +159,7 @@ const FinancialReports = () => {
                 <div><h3 className="font-bold text-sm uppercase tracking-wider text-slate-400 mb-3">Operating Activities</h3>
                   <div className="space-y-1">
                     <div className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>Customer Payments Received</span><span className="font-medium text-emerald-600">+{fmt(cf?.operating?.cashIn)}</span></div>
-                    <div className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>Expenses Paid</span><span className="font-medium text-rose-600">-{fmt(cf?.operating?.cashOutExpenses)}</span></div>
+                    <div className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>Ledger spend</span><span className="font-medium text-rose-600">-{fmt(cf?.operating?.cashOutExpenses)}</span></div>
                     <div className="flex justify-between py-2 px-3 hover:bg-slate-50 rounded"><span>Payroll Paid</span><span className="font-medium text-rose-600">-{fmt(cf?.operating?.cashOutPayroll)}</span></div>
                   </div>
                   <div className="flex justify-between py-2 px-3 bg-slate-100 rounded-lg mt-2"><span className="font-bold">Net Operating Cash Flow</span><span className={`font-bold ${(cf?.operating?.net || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmt(cf?.operating?.net)}</span></div>

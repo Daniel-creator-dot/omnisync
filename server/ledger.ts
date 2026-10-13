@@ -32,6 +32,28 @@ export type AccountRow = {
   balance: number;
 };
 
+export async function expenseLines(client: PoolClient) {
+  await ensureBooks();
+  const result = await client.query(`
+    SELECT j.id AS journal_id,
+      COALESCE(j.entry_date, j.date, j.created_at::date) AS date,
+      j.description,
+      j.reference,
+      c.id AS account_id,
+      c.code,
+      c.name AS account_name,
+      l.debit::float AS debit,
+      l.credit::float AS credit,
+      (l.debit - l.credit)::float AS amount
+    FROM journal_lines l
+    JOIN journal_entries j ON j.id = l.journal_entry_id
+    JOIN chart_of_accounts c ON c.id = l.account_id
+    WHERE lower(c.type) = 'expense'
+    ORDER BY COALESCE(j.entry_date, j.date, j.created_at) DESC NULLS LAST, j.id DESC
+  `);
+  return result.rows;
+}
+
 export async function listJournals() {
   await ensureBooks();
   const result = await pool.query(`

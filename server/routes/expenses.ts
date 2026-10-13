@@ -1,6 +1,8 @@
 import { Router, Response } from 'express';
 import pool from '../db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { JournalError, expenseLines, postJournal } from '../ledger';
+import { ensureBooks } from '../schema';
 
 const router = Router();
 
@@ -15,6 +17,53 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/activity', authMiddleware, async (_req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
+  try {
+    res.json(await expenseLines(client));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/spend', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const client = await pool.connect();
+  try {
+    const { accountId, paidFromId, amount, date, description, reference } = req.body;
+    const value = Number(amount);
+    if (!accountId || !paidFromId) return res.status(400).json({ error: 'Choose an expense account and the account that paid it' });
+    if (!(value > 0)) return res.status(400).json({ error: 'Amount must be greater than zero' });
+    if (String(accountId) === String(paidFromId)) return res.status(400).json({ error: 'The expense account and the paying account must be different' });
+    await ensureBooks();
+    await client.query('BEGIN');
+    const entry = await postJournal(client, {
+      date,
+      description: description || 'Expense',
+      reference: reference || 'Expenses',
+      lines: [
+        { accountId, type: 'debit', amount: value },
+        { accountId: paidFromId, type: 'credit', amount: value },
+      ],
+    });
+    await client.query(
+      'INSERT INTO expenses (category, amount, date, description, status, submitted_by, account_id) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [reference || 'Expenses', value, date || new Date().toISOString().slice(0, 10), description || 'Expense', 'approved', req.user?.id || null, accountId]
+    );
+    await client.query('COMMIT');
+    res.status(201).json(entry);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error(error);
+    const status = error instanceof JournalError ? error.status : 500;
+    res.status(status).json({ error: error instanceof JournalError ? error.message : 'Server error' });
+  } finally {
+    client.release();
   }
 });
 
