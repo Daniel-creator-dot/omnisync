@@ -29,6 +29,15 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
   const [tasks, setTasks] = useState<DeskTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [ink, setInk] = useState('#1e293b');
+
+  useEffect(() => {
+    const read = () => setInk(document.documentElement.classList.contains('dark') ? '#f4f4f5' : '#1e293b');
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -74,7 +83,7 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-300">Today</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">{greeting}, {profile?.displayName?.split(' ')[0] || 'there'}</h1>
-            <p className="mt-2 max-w-md text-sm text-zinc-400">Money, people, and the follow-ups still sitting on the desk.</p>
+            <p className="mt-2 max-w-md text-sm text-zinc-200">Money, people, and the follow-ups still sitting on the desk.</p>
             <div className="mt-6 flex flex-wrap gap-2">
               {shortcuts.map((item) => (
                 <button
@@ -89,7 +98,7 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
             </div>
           </div>
           <div className="rounded-2xl bg-white/6 p-5">
-            <p className="text-xs text-zinc-400">Net so far</p>
+            <p className="text-xs text-zinc-200">Net so far</p>
             <p className="mt-2 text-3xl font-semibold tracking-tight">{money(Math.abs(net))}</p>
             <p className={`mt-1 text-sm ${net >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
               {net >= 0 ? 'Ahead of expenses' : 'Expenses are ahead'}
@@ -131,10 +140,10 @@ const Dashboard = ({ onOpen }: DashboardProps) => {
                     <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} width={40} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid var(--border)', fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={ink} strokeOpacity={0.25} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: ink }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: ink }} width={40} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #cbd5e1', background: ink === '#f4f4f5' ? '#18181b' : '#ffffff', color: ink === '#f4f4f5' ? '#fafafa' : '#0f172a', fontSize: 12 }} />
                 <Area type="monotone" dataKey="revenue" stroke="#6366f1" fill="url(#revFill)" strokeWidth={2} />
                 <Area type="monotone" dataKey="expenses" stroke="#e11d48" fill="transparent" strokeWidth={2} />
               </AreaChart>

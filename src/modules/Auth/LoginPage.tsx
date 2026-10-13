@@ -41,13 +41,13 @@ const LoginPage = () => {
         <div className="relative max-w-md">
           <p className="text-sm font-medium text-indigo-200">Accounting, people, and insurance</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight leading-[1.1]">A calmer desk for the whole business.</h1>
-          <ul className="mt-8 space-y-4 text-sm text-slate-300">
+          <ul className="mt-8 space-y-4 text-sm text-zinc-200">
             <li className="flex gap-3"><Landmark className="mt-0.5 h-4 w-4 text-indigo-300 shrink-0" /> Ledgers, invoices, and reports that stay in balance.</li>
             <li className="flex gap-3"><Users className="mt-0.5 h-4 w-4 text-indigo-300 shrink-0" /> Payroll, leave, and the rest of the HR suite.</li>
             <li className="flex gap-3"><Shield className="mt-0.5 h-4 w-4 text-indigo-300 shrink-0" /> Clients, policies, leads, and products in one place.</li>
           </ul>
         </div>
-        <p className="relative text-xs text-slate-500">Total Assets = Total Liabilities + Total Equity</p>
+        <p className="relative text-xs text-zinc-300">Total Assets = Total Liabilities + Total Equity</p>
       </aside>
 
       <main className="flex min-h-screen items-center justify-center px-5 py-10">
@@ -78,7 +78,7 @@ const LoginPage = () => {
 
                   <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="email" className="text-slate-700">Email</Label>
+                      <Label htmlFor="email" className="text-foreground">Email</Label>
                       <Input
                         id="email"
                         type="email"
@@ -91,7 +91,7 @@ const LoginPage = () => {
                     </div>
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="password" className="text-slate-700">Password</Label>
+                        <Label htmlFor="password" className="text-foreground">Password</Label>
                         <button
                           type="button"
                           onClick={() => setIsForgotMode(true)}

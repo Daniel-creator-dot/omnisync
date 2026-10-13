@@ -56,9 +56,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         onClick={() => go(id)}
         className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 text-left transition-colors ${
           compact ? 'h-10 text-sm' : 'h-9 text-[13px]'
-        } ${active ? 'bg-white text-slate-950' : 'text-zinc-300 hover:bg-white/8 hover:text-white'}`}
+        } ${active ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-100 hover:bg-white/10 hover:text-white'}`}
       >
-        <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-indigo-600' : 'text-zinc-400'}`} />
+        <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-indigo-700' : 'text-zinc-300'}`} />
         {(compact || isSidebarOpen) && <span className="truncate font-medium">{label}</span>}
       </button>
     );
@@ -99,7 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
               </div>
               <div>
                 <p className="text-sm font-semibold leading-none tracking-tight">Bytz360</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-zinc-500">Desk</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-zinc-300">Desk</p>
               </div>
             </div>
           )}
@@ -113,7 +113,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             if (isSection(item)) {
               return (
                 <div key={item.section} className={`px-2 pb-1 ${index > 0 ? 'mt-4' : 'mt-1'}`}>
-                  {isSidebarOpen && <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{item.section}</p>}
+                  {isSidebarOpen && <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-300">{item.section}</p>}
                 </div>
               );
             }
@@ -127,11 +127,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             {isSidebarOpen && (
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{profile?.displayName}</p>
-                <p className="truncate text-xs capitalize text-zinc-400">{profile?.role}</p>
+                <p className="truncate text-xs capitalize text-zinc-300">{profile?.role}</p>
               </div>
             )}
           </div>
-          <Button variant="ghost" className="h-8 w-full justify-start gap-2.5 text-[13px] text-zinc-400 hover:bg-white/10 hover:text-white" onClick={logout}>
+          <Button variant="ghost" className="h-8 w-full justify-start gap-2.5 text-[13px] text-zinc-200 hover:bg-white/10 hover:text-white" onClick={logout}>
             <LogOut className="h-4 w-4 shrink-0" />
             {isSidebarOpen && <span>Log out</span>}
           </Button>
@@ -154,7 +154,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         </div>
         <nav className="custom-scrollbar flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
           {items.map((item) => isSection(item) ? (
-            <p key={item.section} className="px-2 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{item.section}</p>
+            <p key={item.section} className="px-2 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-300">{item.section}</p>
           ) : navButton(item.id, item.label, item.icon, true))}
         </nav>
         <div className="border-t border-white/10 p-3">
@@ -162,7 +162,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             {avatar}
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{profile?.displayName}</p>
-              <p className="truncate text-xs capitalize text-zinc-400">{profile?.role}</p>
+              <p className="truncate text-xs capitalize text-zinc-300">{profile?.role}</p>
             </div>
           </div>
           <Button variant="outline" className="h-9 w-full border-white/15 bg-transparent text-white hover:bg-white/10" onClick={logout}>
