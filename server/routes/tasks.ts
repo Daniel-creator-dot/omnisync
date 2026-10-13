@@ -72,8 +72,8 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
     const result = await pool.query(
       `UPDATE desk_tasks
        SET status = $2,
-           title = COALESCE($3, title),
-           priority = COALESCE($4, priority),
+           title = COALESCE($3::varchar, title),
+           priority = COALESCE($4::varchar, priority),
            completed_at = CASE WHEN $2 = 'done' THEN COALESCE(completed_at, NOW()) ELSE NULL END
        WHERE id = $1
        RETURNING id, title, detail, status, priority, due_date, created_by, created_at, completed_at`,
